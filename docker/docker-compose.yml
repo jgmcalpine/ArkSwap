@@ -1,0 +1,62 @@
+services:
+  bitcoind:
+    image: ruimarinho/bitcoin-core:24
+    container_name: bitcoind
+    command:
+      - -printtoconsole
+      - -server
+      - -regtest
+      - -rpcuser=ark
+      - -rpcpassword=ark
+      - -txindex=1
+      - -rpcbind=0.0.0.0
+      - -rpcallowip=0.0.0.0/0
+      - -fallbackfee=0.0002
+    ports:
+      - "18443:18443"
+    volumes:
+      - ./data/bitcoin:/root/.bitcoin
+    networks:
+      - arkswap-network
+    healthcheck:
+      test: ["CMD", "bitcoin-cli", "-regtest", "-rpcuser=ark", "-rpcpassword=ark", "getblockchaininfo"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  postgres:
+    image: postgres:15-alpine
+    container_name: postgres
+    environment:
+      POSTGRES_USER: arkswap
+      POSTGRES_PASSWORD: arkswap
+      POSTGRES_DB: arkswap
+    ports:
+      - "5432:5432"
+    volumes:
+      - ./data/postgres:/var/lib/postgresql/data
+    networks:
+      - arkswap-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U arkswap"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:alpine
+    container_name: redis
+    ports:
+      - "6379:6379"
+    networks:
+      - arkswap-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+networks:
+  arkswap-network:
+    driver: bridge
+

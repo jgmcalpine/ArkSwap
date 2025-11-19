@@ -1,0 +1,26 @@
+{
+  "name": "@arkswap/protocol",
+  "version": "0.1.0",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "clean": "rm -rf dist",
+    "test": "jest",
+    "test:coverage": "jest --coverage"
+  },
+  "dependencies": {
+    "bitcoinjs-lib": "^6.1.5",
+    "ecpair": "^2.1.0",
+    "@bitcoinerlab/secp256k1": "^1.1.1"
+  },
+  "devDependencies": {
+    "@types/jest": "^29.5.12",
+    "@types/node": "^20.11.24",
+    "jest": "^29.7.0",
+    "ts-jest": "^29.1.2",
+    "typescript": "^5.5.0"
+  }
+}
+
