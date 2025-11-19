@@ -101,3 +101,32 @@ Bitcoin Core tries to calculate "Smart Fees" based on recent network activity to
 We updated the `docker-compose.yml` command for `bitcoind` to include:
 `-fallbackfee=0.0002`
 This tells the node: "If you don't know what fee to use, just use 20,000 sats/kB."
+
+## 7. Official Infrastructure (The "Private Image" Block)
+
+### The Problem
+We attempted to pull the official Ark Service Provider image (`ark-network/arkd`) for our Docker stack, but it failed with `pull access denied`.
+
+### The Root Cause
+The official reference implementation is currently behind a private registry or not fully public. Attempting to use bleeding-edge protocol tooling often leads to "Invitation Only" roadblocks.
+
+### The Solution
+**The Pivot:** We decided to build our own.
+*   Instead of treating the ASP as a black box, we scaffolded a new NestJS application (`apps/asp`) inside our monorepo.
+*   This allows us to implement a "Transparent ASP" where we control the Round interval and Signing logic, which is actually better for educational mastery than running a binary we can't inspect.
+
+---
+
+## 8. Docker Build Pipeline (The "Context" Traps)
+
+### The Problem
+Building the custom ASP container failed repeatedly with `exit code: 1` during the `pnpm install` and `turbo build` steps.
+
+### The Root Causes
+1.  **Stale Lockfile:** We added a new app (`apps/asp`) but didn't run `pnpm install` at the root level. Docker's `pnpm install --frozen-lockfile` check failed because the lockfile didn't match the new project structure.
+2.  **Bad Filter Syntax:** The generated Dockerfile contained a hallucinated TurboRepo command: `--filter=@arkswap/protocol...@arkswap/asp`. TurboRepo does not support chaining filters this way.
+
+### The Solution
+1.  **Sync Lockfile:** We ran `pnpm install` locally to update `pnpm-lock.yaml` before building.
+2.  **Correct Syntax:** We updated the build command to `pnpm turbo build --filter=@arkswap/asp...`.
+    *   The `...` suffix tells TurboRepo: *"Build this package AND all its dependencies (like @arkswap/protocol)."* This handles the dependency graph automatically without needing to list every package manually.
