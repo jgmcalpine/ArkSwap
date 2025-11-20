@@ -9,6 +9,7 @@ import { requestFaucet, requestSwapQuote, commitSwap, getBitcoinInfo, type SwapQ
 import { mockArkClient } from '../lib/ark-client';
 import { createSwapLock, type SwapLockResult, type Vtxo, SwapQuoteSchema } from '@arkswap/protocol';
 import { getErrorMessage } from '../lib/error-utils';
+import { saveSession, loadSession, clearSession, type SwapStep as SwapStepType } from '../lib/swap-session';
 
 type SwapStep = 'quote' | 'locking' | 'success' | 'pendingRefund' | 'refundSuccess';
 
@@ -38,6 +39,7 @@ export function Dashboard() {
   const previousBalanceRef = useRef<number>(balance);
   const l1AddressInputRef = useRef<HTMLInputElement | null>(null);
   const [loadingText, setLoadingText] = useState<string | null>(null);
+  const hasLoadedSessionRef = useRef<boolean>(false);
 
   // React Query for bitcoin info (used in pendingRefund step)
   const { data: bitcoinInfo } = useQuery({
@@ -46,6 +48,72 @@ export function Dashboard() {
     refetchInterval: swapStep === 'pendingRefund' ? 5000 : false,
     enabled: swapStep === 'pendingRefund',
   });
+
+  // Load session on mount (only once)
+  useEffect(() => {
+    if (hasLoadedSessionRef.current) {
+      return;
+    }
+    
+    const session = loadSession();
+    if (session) {
+      hasLoadedSessionRef.current = true;
+      setSwapStep(session.step);
+      setSwapAmount(session.amount);
+      setQuote(session.quote);
+      setLockAddress(session.lockAddress);
+      setUserL1Address(session.userL1Address);
+      setL1TxId(session.l1TxId);
+      setStartBlock(session.startBlock);
+      setTimeoutBlock(session.timeoutBlock);
+      
+      // Regenerate lockResult if we have quote and lockAddress (need address for pubkey)
+      if (session.quote && session.lockAddress && address) {
+        const savedQuote = session.quote;
+        (async () => {
+          try {
+            const userPubkey = await mockArkClient.getPublicKey();
+            const makerPubkey = Buffer.from(savedQuote.makerPubkey, 'hex');
+            const preimageHash = Buffer.from(savedQuote.preimageHash, 'hex');
+            
+            const lockResultData = createSwapLock({
+              makerPubkey,
+              userPubkey,
+              preimageHash,
+              timeoutBlocks: 20,
+            });
+            
+            setLockResult(lockResultData);
+          } catch (error) {
+            console.error('Failed to regenerate lock result:', error);
+          }
+        })();
+      }
+    } else {
+      hasLoadedSessionRef.current = true;
+    }
+  }, [address]);
+
+  // Save session when relevant state changes
+  useEffect(() => {
+    // Don't save during 'locking' step (we revert it on load anyway)
+    if (swapStep === 'locking') {
+      return;
+    }
+    
+    const session = {
+      step: swapStep,
+      amount: swapAmount,
+      quote,
+      lockAddress,
+      userL1Address,
+      l1TxId,
+      startBlock,
+      timeoutBlock,
+    };
+    
+    saveSession(session);
+  }, [swapStep, swapAmount, quote, lockAddress, userL1Address, l1TxId, startBlock, timeoutBlock]);
 
   // Clear lift status when balance updates (indicating round finalized)
   useEffect(() => {
@@ -234,6 +302,7 @@ export function Dashboard() {
   };
 
   const handleResetSwap = () => {
+    clearSession();
     setSwapStep('quote');
     setSwapAmount('');
     setLockAddress(null);
