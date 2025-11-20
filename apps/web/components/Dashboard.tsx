@@ -147,27 +147,35 @@ export function Dashboard() {
       // The send method handles coin selection, signing, broadcasting, and marking inputs as spent
       const l2TxId = await mockArkClient.send(amount, lockAddress);
 
-      // 3. Refresh balance and VTXOs
+      // 2. Refresh balance and VTXOs
       await refreshBalance();
 
       // 3. Check Chaos Mode
       if (chaosMode) {
         // Simulate backend crash - don't call commitSwap
-        // Get current block to calculate timeout
+        // Get current block to calculate timeout (targetBlock = Current + Timeout)
         try {
           const bitcoinInfo = await getBitcoinInfo();
           const current = bitcoinInfo.blocks;
           const timeoutBlocks = 20; // From createSwapLock
+          const targetBlock = current + timeoutBlocks;
+          
+          // Set all state needed for refund UI
           setStartBlock(current);
           setCurrentBlock(current);
-          setTimeoutBlock(current + timeoutBlocks);
+          setTimeoutBlock(targetBlock);
+          
+          // Transition to refund view immediately
           setSwapStep('pendingRefund');
         } catch (err) {
           console.error("Failed to get bitcoin info", err);
           // Fallback: use a default start block
-          setStartBlock(0);
-          setCurrentBlock(0);
-          setTimeoutBlock(20);
+          const current = 0;
+          const timeoutBlocks = 20;
+          const targetBlock = current + timeoutBlocks;
+          setStartBlock(current);
+          setCurrentBlock(current);
+          setTimeoutBlock(targetBlock);
           setSwapStep('pendingRefund');
         }
       } else {
@@ -251,14 +259,22 @@ export function Dashboard() {
     }
 
     setIsClaimingRefund(true);
+    setCommitError(null);
     try {
+      // Claim refund using mockArkClient
       await mockArkClient.claimRefund(amount, address);
+      
+      // Update balance to reflect the refund
       await refreshBalance();
-      setSwapStep('refundSuccess');
+      
+      // Stop block polling
       if (pollingIntervalRef.current) {
         clearInterval(pollingIntervalRef.current);
         pollingIntervalRef.current = null;
       }
+      
+      // Reset UI to quote step after successful refund
+      handleResetSwap();
     } catch (err) {
       console.error("Refund claim failed", err);
       setCommitError(err instanceof Error ? err.message : 'Failed to claim refund');
@@ -269,7 +285,7 @@ export function Dashboard() {
 
   // Poll for current block when in pending refund state
   useEffect(() => {
-    if (swapStep === 'pendingRefund' && timeoutBlock !== null) {
+    if (swapStep === 'pendingRefund') {
       const pollBlock = async () => {
         try {
           const bitcoinInfo = await getBitcoinInfo();
@@ -289,8 +305,14 @@ export function Dashboard() {
           pollingIntervalRef.current = null;
         }
       };
+    } else {
+      // Clear polling when not in pendingRefund state
+      if (pollingIntervalRef.current) {
+        clearInterval(pollingIntervalRef.current);
+        pollingIntervalRef.current = null;
+      }
     }
-  }, [swapStep, timeoutBlock]);
+  }, [swapStep]);
 
   if (!isConnected) {
     return (
@@ -571,7 +593,7 @@ export function Dashboard() {
                 <div className="flex flex-col items-center justify-center py-8">
                   <Loader2 className="h-8 w-8 animate-spin text-yellow-400 mb-4" />
                   <p className="text-lg font-semibold text-yellow-400 mb-2">
-                    Swap Locked. Waiting for Timeout...
+                    Waiting for Timelock...
                   </p>
                   {currentBlock !== null && timeoutBlock !== null && (
                     <div className="mt-4 space-y-2 text-center">
@@ -585,6 +607,11 @@ export function Dashboard() {
                         Blocks remaining: {Math.max(0, timeoutBlock - currentBlock)}
                       </p>
                     </div>
+                  )}
+                  {(currentBlock === null || timeoutBlock === null) && (
+                    <p className="text-xs text-gray-500 mt-2">
+                      Loading block information...
+                    </p>
                   )}
                 </div>
                 {currentBlock !== null && timeoutBlock !== null && (
