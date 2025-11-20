@@ -219,6 +219,70 @@ export class MockArkClient {
   }
 
   /**
+   * Simulates an employer payment (renamed from faucet)
+   */
+  simulateEmployerPayment(address: string, amount: number): void {
+    this.addVtxo(address, amount);
+  }
+
+  /**
+   * Initiates a lift (onboarding) request to the ASP
+   */
+  async lift(address: string, amount: number): Promise<{ status: string; nextRound: string }> {
+    const response = await fetch('http://localhost:7070/v1/lift', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ address, amount }),
+    });
+
+    if (!response.ok) {
+      throw new Error(`Lift request failed: ${response.statusText}`);
+    }
+
+    return response.json();
+  }
+
+  /**
+   * Fetches VTXOs from the ASP and merges them into local storage
+   */
+  async fetchFromASP(address: string): Promise<void> {
+    try {
+      const response = await fetch(`http://localhost:7070/v1/vtxos/${address}`);
+      
+      if (!response.ok) {
+        // If ASP is not available, silently fail (don't break the app)
+        if (response.status === 404 || response.status >= 500) {
+          return;
+        }
+        throw new Error(`Failed to fetch VTXOs: ${response.statusText}`);
+      }
+
+      const aspVtxos: Vtxo[] = await response.json();
+      const vtxos = this.getStorage();
+      const addressVtxos = vtxos[address] ?? [];
+      
+      // Merge logic: check if we already have each VTXO by txid
+      let hasNewVtxos = false;
+      for (const aspVtxo of aspVtxos) {
+        const exists = addressVtxos.some(v => v.txid === aspVtxo.txid);
+        if (!exists) {
+          addressVtxos.push(aspVtxo);
+          hasNewVtxos = true;
+        }
+      }
+      
+      // Only save if we have new VTXOs
+      if (hasNewVtxos) {
+        vtxos[address] = addressVtxos;
+        this.setStorage(vtxos);
+      }
+    } catch (error) {
+      // Silently fail if ASP is not available
+      console.error('Failed to fetch from ASP:', error);
+    }
+  }
+
+  /**
    * Sends tokens to another address
    */
   async send(amount: number, to: string): Promise<string> {

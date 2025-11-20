@@ -88,11 +88,25 @@ export function WalletProvider({ children }: { children: ReactNode }) {
 
   const refreshBalance = useCallback(async () => {
     if (address) {
-      // Balance is synchronous, but we keep it async for consistency
+      // First, fetch from ASP to merge any new VTXOs
+      await mockArkClient.fetchFromASP(address);
+      // Then update balance and VTXOs
       setBalance(mockArkClient.getBalance(address));
       setVtxos(mockArkClient.getVtxos(address));
     }
   }, [address]);
+
+  // Poll ASP every 5 seconds
+  useEffect(() => {
+    if (!address) return;
+
+    const pollInterval = setInterval(async () => {
+      await mockArkClient.fetchFromASP(address);
+      await refreshBalance();
+    }, 5000);
+
+    return () => clearInterval(pollInterval);
+  }, [address, refreshBalance]);
 
   return (
     <WalletContext.Provider

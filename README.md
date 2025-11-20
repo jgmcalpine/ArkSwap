@@ -95,9 +95,16 @@ We are building ArkSwap in distinct "Chunks" to ensure security and architectura
 - [x] **Phase 9: The Safety Net** (Unhappy Path: Unilateral Exit/Refund flow)
 - [x] **Phase 10: Infrastructure - The Real ASP** (Build minimal Ark Service Provider)
 - [x] **Phase 11: VTXO State Management** (Implement real Ark Wallet SDK)
-- [ ] **Phase 12: The "Lift" - Onboarding** (Lift bitcoin onto the Ark)
+- [x] **Phase 12: The "Lift" - Onboarding** (Lift bitcoin onto the Ark)
 - [ ] **Phase 13: The "Off-Chain" HTLC Funding** (Final Boss)
 - [ ] **Phase 14: The Double Unilateral Exit** (Implement the Ark exit)
+
+## 🔮 Out of Scope / Future Improvements
+
+### Atomic Lifting (Trustless Onboarding)
+Currently, ArkSwap simulates the "Lifting" process (converting L1 Bitcoin to L2 VTXOs) via a direct API call to the ASP. While this correctly models the asynchronous round latency, a production implementation would utilize Atomic Lifts.
+**The Ideal State**: The user constructs and broadcasts a Bitcoin L1 transaction that funds the Ark Covenant directly. The act of funding on-chain mathematically forces the creation of the VTXO off-chain, removing the need to trust the ASP to credit the deposit.
+**Why it is out of scope**: Implementing Atomic Lifts requires building a full-featured Bitcoin L1 Wallet in the browser (for coin selection and signing) and a robust Chain Indexer for the ASP. To maintain focus on the Swap & Exit mechanics (the project's core value prop), we chose to abstract the onboarding plumbing for this PoC.
 
 ## 🤝 Contributing
 

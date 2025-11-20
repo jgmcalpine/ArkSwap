@@ -33,30 +33,36 @@ export function Dashboard() {
   const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const [selectedVtxos, setSelectedVtxos] = useState<string[]>([]);
   const [isManualSelection, setIsManualSelection] = useState(false);
+  const [liftStatus, setLiftStatus] = useState<string | null>(null);
+  const previousBalanceRef = useRef<number>(balance);
+
+  // Clear lift status when balance updates (indicating round finalized)
+  useEffect(() => {
+    if (previousBalanceRef.current < balance && liftStatus) {
+      setLiftStatus(null);
+    }
+    previousBalanceRef.current = balance;
+  }, [balance, liftStatus]);
 
   const handleFaucet = async () => {
     if (!address) return;
     
     setIsLoading(true);
     setFaucetError(null);
+    setLiftStatus(null);
     try {
-      // 1. Call the Backend (Triggers the mining simulation and logs)
-      // Make sure this port matches your NestJS API port!
-      await fetch('http://localhost:3001/faucet/user', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ address }),
-      });
-
-      // 2. Update the Local Mock Client (Persists the balance to localStorage)
-      mockArkClient.addBalance(address, 10000);
+      // Call the ASP lift endpoint
+      await mockArkClient.lift(address, 10000);
       
-      // 3. Update the UI Context
-      await refreshBalance(); 
+      // Show status message
+      setLiftStatus('Deposit initiated. Waiting for next Round...');
+      
+      // Note: Balance will update automatically when the Round finalizes
+      // and the poller fetches the new coin (every 5 seconds)
       
     } catch (error) {
-      console.error("Faucet failed", error);
-      setFaucetError('Failed to request faucet');
+      console.error("Lift failed", error);
+      setFaucetError('Failed to initiate deposit');
     } finally {
       setIsLoading(false);
     }
@@ -323,14 +329,17 @@ export function Dashboard() {
           </div>
         </div>
 
-        {/* Faucet Card */}
+        {/* Deposit Card */}
         <div className="rounded-xl border border-gray-800 bg-gray-900/50 p-6 backdrop-blur-sm">
           <div className="flex items-center justify-between">
             <div>
-              <h3 className="text-sm font-medium text-gray-400">Get Test Tokens</h3>
+              <h3 className="text-sm font-medium text-gray-400">Simulate Employer Deposit</h3>
               <p className="mt-1 text-sm text-gray-500">
-                Request tokens from the faucet to test the swap functionality
+                Initiate a deposit that will be processed in the next Round (5 seconds)
               </p>
+              {liftStatus && (
+                <p className="mt-2 text-sm text-blue-400">{liftStatus}</p>
+              )}
               {faucetError && (
                 <p className="mt-2 text-sm text-red-400">{faucetError}</p>
               )}
@@ -347,7 +356,7 @@ export function Dashboard() {
               )}
             >
               <Droplets className="h-4 w-4" />
-              {isLoading ? 'Processing...' : 'Get Mock Ark'}
+              {isLoading ? 'Processing...' : 'Deposit'}
             </button>
           </div>
         </div>
