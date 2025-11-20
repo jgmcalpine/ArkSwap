@@ -103,7 +103,9 @@ We are building ArkSwap in distinct "Chunks" to ensure security and architectura
 
 ### Atomic Lifting (Trustless Onboarding)
 Currently, ArkSwap simulates the "Lifting" process (converting L1 Bitcoin to L2 VTXOs) via a direct API call to the ASP. While this correctly models the asynchronous round latency, a production implementation would utilize Atomic Lifts.
+
 **The Ideal State**: The user constructs and broadcasts a Bitcoin L1 transaction that funds the Ark Covenant directly. The act of funding on-chain mathematically forces the creation of the VTXO off-chain, removing the need to trust the ASP to credit the deposit.
+
 **Why it is out of scope**: Implementing Atomic Lifts requires building a full-featured Bitcoin L1 Wallet in the browser (for coin selection and signing) and a robust Chain Indexer for the ASP. To maintain focus on the Swap & Exit mechanics (the project's core value prop), we chose to abstract the onboarding plumbing for this PoC.
 
 ## 🤝 Contributing
