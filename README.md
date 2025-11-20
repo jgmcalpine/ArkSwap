@@ -90,10 +90,14 @@ We are building ArkSwap in distinct "Chunks" to ensure security and architectura
 - [x] **Phase 4: Frontend Wallet** (Local non-custodial wallet, state persistence)
 - [x] **Phase 5: God Mode** (Faucets, Mining simulation, DevTools)
 - [x] **Phase 6: The Protocol** (Taproot HTLC Script implementation & 100% test coverage)
-- [ ] **Phase 7: The Handshake** (Quote generation & Cryptographic negotiation)
-- [ ] **Phase 8: Execution** (Happy Path: Locking funds & Claiming L1 Bitcoin)
-- [ ] **Phase 9: The Safety Net** (Unhappy Path: Unilateral Exit/Refund flow)
-- [ ] **Phase 10: Production Hardening** (Audit, HSM integration, Mainnet)
+- [x] **Phase 7: The Handshake** (Quote generation & Cryptographic negotiation)
+- [x] **Phase 8: Execution** (Happy Path: Locking funds & Claiming L1 Bitcoin)
+- [x] **Phase 9: The Safety Net** (Unhappy Path: Unilateral Exit/Refund flow)
+- [x] **Phase 10: Infrastructure - The Real ASP** (Build minimal Ark Service Provider)
+- [ ] **Phase 11: VTXO State Management** (Implement real Ark Wallet SDK)
+- [ ] **Phase 12: The "Lift" - Onboarding** (Lift bitcoin onto the Ark)
+- [ ] **Phase 13: The "Off-Chain" HTLC Funding** (Final Boss)
+- [ ] **Phase 14: The Double Unilateral Exit** (Implement the Ark exit)
 
 ## 🤝 Contributing
 
