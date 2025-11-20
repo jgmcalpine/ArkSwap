@@ -6,7 +6,7 @@ import { Coins, Droplets, ArrowRightLeft, Loader2, CheckCircle2 } from 'lucide-r
 import { cn } from '../lib/utils';
 import { requestFaucet, requestSwapQuote, commitSwap, getBitcoinInfo, type SwapQuoteResponse } from '../lib/api';
 import { mockArkClient } from '../lib/ark-client';
-import { createSwapLock, type SwapLockResult, type Vtxo } from '@arkswap/protocol';
+import { createSwapLock, type SwapLockResult, type Vtxo, SwapQuoteSchema } from '@arkswap/protocol';
 
 type SwapStep = 'quote' | 'locking' | 'success' | 'pendingRefund' | 'refundSuccess';
 
@@ -89,7 +89,8 @@ export function Dashboard() {
 
     try {
       // 1. Request quote from backend
-      const quoteData = await requestSwapQuote(amount);
+      const quoteDataRaw = await requestSwapQuote(amount);
+      const quoteData = SwapQuoteSchema.parse(quoteDataRaw);
 
       // 2. Get user public key from wallet
       const userPubkey = await mockArkClient.getPublicKey();

@@ -1,6 +1,7 @@
 import { walletTools } from './crypto';
 import type { Vtxo, ArkTransaction, ArkInput, ArkOutput } from '@arkswap/protocol';
-import { getTxHash } from '@arkswap/protocol';
+import { getTxHash, VtxoSchema } from '@arkswap/protocol';
+import { z } from 'zod';
 
 const WIF_STORAGE_KEY = 'ark_wallet_wif';
 const VTXO_STORAGE_KEY = 'ark_vtxos';
@@ -234,6 +235,11 @@ export class MockArkClient {
    * Initiates a lift (onboarding) request to the ASP
    */
   async lift(address: string, amount: number): Promise<{ status: string; nextRound: string }> {
+    const LiftResponseSchema = z.object({
+      status: z.string(),
+      nextRound: z.string(),
+    });
+
     const response = await fetch('http://localhost:7070/v1/lift', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -244,7 +250,8 @@ export class MockArkClient {
       throw new Error(`Lift request failed: ${response.statusText}`);
     }
 
-    return response.json();
+    const data = await response.json();
+    return LiftResponseSchema.parse(data);
   }
 
   /**
@@ -262,7 +269,8 @@ export class MockArkClient {
         throw new Error(`Failed to fetch VTXOs: ${response.statusText}`);
       }
 
-      const aspVtxos: Vtxo[] = await response.json();
+      const data = await response.json();
+      const aspVtxos = VtxoSchema.array().parse(data);
       const vtxos = this.getStorage();
       const addressVtxos = vtxos[address] ?? [];
       

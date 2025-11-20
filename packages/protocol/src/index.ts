@@ -1,3 +1,5 @@
+import { z } from 'zod';
+
 /**
  * Interface for Elliptic Curve Cryptography library operations
  * Matches the methods we use from @bitcoinerlab/secp256k1
@@ -29,34 +31,48 @@ export interface ECCLibrary {
   privateNegate(privateKey: Uint8Array): Uint8Array;
 }
 
-export type SwapQuote = {
-  id: string;
-  amount: number;
-};
+/**
+ * Zod Schemas for Runtime Validation
+ */
+export const VtxoSchema = z.object({
+  txid: z.string(),
+  vout: z.number().int().nonnegative(),
+  amount: z.number().nonnegative(),
+  address: z.string(),
+  spent: z.boolean(),
+});
 
-export interface Vtxo {
-  txid: string;
-  vout: number;
-  amount: number;
-  address: string;
-  spent: boolean;
-}
+export const SwapQuoteSchema = z.object({
+  id: z.string(),
+  amount: z.number().nonnegative(),
+  preimageHash: z.string(),
+  makerPubkey: z.string(),
+});
 
-export interface ArkInput {
-  txid: string;
-  vout: number;
-  signature: string;
-}
+export const ArkInputSchema = z.object({
+  txid: z.string(),
+  vout: z.number().int().nonnegative(),
+  signature: z.string(),
+});
 
-export interface ArkOutput {
-  address: string;
-  amount: number;
-}
+export const ArkOutputSchema = z.object({
+  address: z.string(),
+  amount: z.number().nonnegative(),
+});
 
-export interface ArkTransaction {
-  inputs: ArkInput[];
-  outputs: ArkOutput[];
-}
+export const ArkTransactionSchema = z.object({
+  inputs: z.array(ArkInputSchema),
+  outputs: z.array(ArkOutputSchema),
+});
+
+/**
+ * Types inferred from Zod Schemas (Single Source of Truth)
+ */
+export type SwapQuote = z.infer<typeof SwapQuoteSchema>;
+export type Vtxo = z.infer<typeof VtxoSchema>;
+export type ArkInput = z.infer<typeof ArkInputSchema>;
+export type ArkOutput = z.infer<typeof ArkOutputSchema>;
+export type ArkTransaction = z.infer<typeof ArkTransactionSchema>;
 
 /**
  * Computes the transaction hash for signing/verification

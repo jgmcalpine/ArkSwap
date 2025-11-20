@@ -20,7 +20,8 @@
     "ecpair": "^2.1.0",
     "reflect-metadata": "^0.2.1",
     "rxjs": "^7.8.1",
-    "tiny-secp256k1": "^2.2.4"
+    "tiny-secp256k1": "^2.2.4",
+    "zod": "^4.1.12"
   },
   "devDependencies": {
     "@nestjs/cli": "^10.3.0",

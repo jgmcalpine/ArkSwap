@@ -1,21 +1,22 @@
-import { Controller, Post, Body, HttpException, HttpStatus, Logger } from '@nestjs/common';
+import { Controller, Post, Body, HttpException, HttpStatus, Logger, BadRequestException } from '@nestjs/common';
 import { SwapService } from './swap.service';
+import { z, ZodError } from 'zod';
 
-interface SwapQuoteRequest {
-  amount: number;
-}
+const SwapQuoteRequestSchema = z.object({
+  amount: z.number().positive(),
+});
+
+const SwapCommitRequestSchema = z.object({
+  swapId: z.string().min(1),
+  txid: z.string().min(1),
+  userL1Address: z.string().min(1),
+});
 
 interface SwapQuoteResponse {
   id: string;
   amount: number;
   preimageHash: string;
   makerPubkey: string;
-}
-
-interface SwapCommitRequest {
-  swapId: string;
-  txid: string;
-  userL1Address: string;
 }
 
 interface SwapCommitResponse {
@@ -30,97 +31,57 @@ export class SwapController {
   constructor(private readonly swapService: SwapService) {}
 
   @Post('quote')
-  async createQuote(@Body() body: SwapQuoteRequest): Promise<SwapQuoteResponse> {
+  async createQuote(@Body() body: unknown): Promise<SwapQuoteResponse> {
     try {
-      if (!body.amount || typeof body.amount !== 'number' || body.amount <= 0) {
-        throw new HttpException(
-          {
-            success: false,
-            message: 'Amount must be a positive number',
-          },
-          HttpStatus.BAD_REQUEST,
-        );
-      }
+      const validatedBody = SwapQuoteRequestSchema.parse(body);
 
-      this.logger.log(`📋 Quote requested for amount: ${body.amount}`);
+      this.logger.log(`📋 Quote requested for amount: ${validatedBody.amount}`);
 
-      const quote = this.swapService.createQuote(body.amount);
+      const quote = this.swapService.createQuote(validatedBody.amount);
 
       this.logger.log(`✅ Quote created: id=${quote.id}, preimageHash=${quote.preimageHash}`);
 
       return quote;
     } catch (error) {
-      if (error instanceof HttpException) {
-        throw error;
+      if (error instanceof ZodError) {
+        throw new BadRequestException(
+          `Validation failed: ${error.issues.map((e) => `${e.path.join('.')}: ${e.message}`).join(', ')}`
+        );
       }
-      throw new HttpException(
-        {
-          success: false,
-          message: error instanceof Error ? error.message : 'Failed to create quote',
-        },
-        HttpStatus.INTERNAL_SERVER_ERROR,
-      );
+      // Handle other errors...
+      if (error instanceof BadRequestException) throw error;
+      throw new BadRequestException(error instanceof Error ? error.message : 'Unknown error');
     }
   }
 
   @Post('commit')
-  async commitSwap(@Body() body: SwapCommitRequest): Promise<SwapCommitResponse> {
+  async commitSwap(@Body() body: unknown): Promise<SwapCommitResponse> {
     try {
-      if (!body.swapId || typeof body.swapId !== 'string') {
-        throw new HttpException(
-          {
-            success: false,
-            message: 'swapId must be a valid string',
-          },
-          HttpStatus.BAD_REQUEST,
-        );
-      }
+      const validatedBody = SwapCommitRequestSchema.parse(body);
 
-      if (!body.txid || typeof body.txid !== 'string') {
-        throw new HttpException(
-          {
-            success: false,
-            message: 'txid must be a valid string',
-          },
-          HttpStatus.BAD_REQUEST,
-        );
-      }
-
-      if (!body.userL1Address || typeof body.userL1Address !== 'string') {
-        throw new HttpException(
-          {
-            success: false,
-            message: 'userL1Address must be a valid string',
-          },
-          HttpStatus.BAD_REQUEST,
-        );
-      }
-
-      this.logger.log(`🔄 Commit requested: swapId=${body.swapId}, txid=${body.txid}`);
+      this.logger.log(`🔄 Commit requested: swapId=${validatedBody.swapId}, txid=${validatedBody.txid}`);
 
       const l1TxId = await this.swapService.processSwap(
-        body.swapId,
-        body.txid,
-        body.userL1Address,
+        validatedBody.swapId,
+        validatedBody.txid,
+        validatedBody.userL1Address,
       );
 
-      this.logger.log(`✅ Swap committed: swapId=${body.swapId}, l1TxId=${l1TxId}`);
+      this.logger.log(`✅ Swap committed: swapId=${validatedBody.swapId}, l1TxId=${l1TxId}`);
 
       return {
         success: true,
         l1TxId,
       };
     } catch (error) {
-      if (error instanceof HttpException) {
-        throw error;
+      if (error instanceof ZodError) {
+        throw new BadRequestException(
+          `Validation failed: ${error.issues.map((e) => `${e.path.join('.')}: ${e.message}`).join(', ')}`
+        );
       }
-      throw new HttpException(
-        {
-          success: false,
-          message: error instanceof Error ? error.message : 'Failed to commit swap',
-        },
-        HttpStatus.INTERNAL_SERVER_ERROR,
-      );
+      // Handle other errors...
+      if (error instanceof BadRequestException) throw error;
+      throw new BadRequestException(error instanceof Error ? error.message : 'Unknown error');
     }
   }
 }
