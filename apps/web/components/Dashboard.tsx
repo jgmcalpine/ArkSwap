@@ -288,12 +288,11 @@ export function Dashboard() {
 
     setIsClaimingRefund(true);
     setCommitError(null);
+    setLoadingText('Processing refund...');
+    
     try {
-      // Claim refund using mockArkClient
+      // Claim refund using lift mechanism (ensures ASP knows about the VTXO)
       await mockArkClient.claimRefund(amount, address);
-      
-      // Update balance to reflect the refund
-      await refreshBalance();
       
       // Stop block polling
       if (pollingIntervalRef.current) {
@@ -301,11 +300,35 @@ export function Dashboard() {
         pollingIntervalRef.current = null;
       }
       
-      // Reset UI to quote step after successful refund
-      handleResetSwap();
+      // Wait for Round Finalization - poll until balance updates
+      setLoadingText('Waiting for Round Finalization...');
+      
+      // Capture initial balance before the refund
+      const initialBalance = balance;
+      let attempts = 0;
+      const maxAttempts = 10;
+      
+      // Poll until balance increases (refund VTXO has arrived) or timeout
+      while (attempts < maxAttempts) {
+        await new Promise(resolve => setTimeout(resolve, 1000)); // Wait 1 second
+        await refreshBalance(); // Force fetch from ASP
+        
+        // Check if balance has increased (refund funds have arrived)
+        const currentBalance = address ? mockArkClient.getBalance(address) : 0;
+        if (currentBalance > initialBalance) {
+          break; // Refund funds have arrived
+        }
+        
+        attempts++;
+      }
+      
+      // Show success state
+      setLoadingText(null);
+      setSwapStep('refundSuccess');
     } catch (err) {
       console.error("Refund claim failed", err);
       setCommitError(err instanceof Error ? err.message : 'Failed to claim refund');
+      setLoadingText(null);
     } finally {
       setIsClaimingRefund(false);
     }
@@ -622,67 +645,81 @@ export function Dashboard() {
 
             {swapStep === 'pendingRefund' && (
               <div className="space-y-4">
-                <div className="flex flex-col items-center justify-center py-8">
-                  <Loader2 className="h-8 w-8 animate-spin text-yellow-400 mb-4" />
-                  <p className="text-lg font-semibold text-yellow-400 mb-2">
-                    Waiting for Timelock...
-                  </p>
-                  {currentBlock !== null && timeoutBlock !== null && (
-                    <div className="mt-4 space-y-2 text-center">
-                      <p className="text-sm text-gray-300">
-                        Current Block: <span className="font-mono text-white">{currentBlock}</span>
-                      </p>
-                      <p className="text-sm text-gray-300">
-                        Timeout Block: <span className="font-mono text-white">{timeoutBlock}</span>
-                      </p>
-                      <p className="text-xs text-gray-500 mt-2">
-                        Blocks remaining: {Math.max(0, timeoutBlock - currentBlock)}
-                      </p>
-                    </div>
-                  )}
-                  {(currentBlock === null || timeoutBlock === null) && (
+                {loadingText ? (
+                  <div className="flex flex-col items-center justify-center py-8">
+                    <Loader2 className="h-8 w-8 animate-spin text-green-400 mb-4" />
+                    <p className="text-sm font-medium text-gray-300">
+                      {loadingText}
+                    </p>
                     <p className="text-xs text-gray-500 mt-2">
-                      Loading block information...
+                      Refund claimed. Funds will appear in the next round.
                     </p>
-                  )}
-                </div>
-                {currentBlock !== null && timeoutBlock !== null && (
+                  </div>
+                ) : (
                   <>
-                    <button
-                      onClick={handleClaimRefund}
-                      disabled={isClaimingRefund || currentBlock < timeoutBlock}
-                      title={
-                        currentBlock < timeoutBlock
-                          ? `🔒 Timelock Active. Funds will unlock at Block ${timeoutBlock} (Current: ${currentBlock}).`
-                          : '🔓 Timelock Expired. You can now reclaim your funds.'
-                      }
-                      className={cn(
-                        'w-full flex items-center justify-center gap-2 rounded-lg border border-gray-700 px-4 py-2',
-                        'text-sm font-medium transition-colors',
-                        'focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 focus:ring-offset-gray-900',
-                        'disabled:cursor-not-allowed disabled:opacity-50',
-                        currentBlock < timeoutBlock
-                          ? 'bg-gray-700 text-gray-400'
-                          : 'bg-green-600 text-white hover:bg-green-700'
+                    <div className="flex flex-col items-center justify-center py-8">
+                      <Loader2 className="h-8 w-8 animate-spin text-yellow-400 mb-4" />
+                      <p className="text-lg font-semibold text-yellow-400 mb-2">
+                        Waiting for Timelock...
+                      </p>
+                      {currentBlock !== null && timeoutBlock !== null && (
+                        <div className="mt-4 space-y-2 text-center">
+                          <p className="text-sm text-gray-300">
+                            Current Block: <span className="font-mono text-white">{currentBlock}</span>
+                          </p>
+                          <p className="text-sm text-gray-300">
+                            Timeout Block: <span className="font-mono text-white">{timeoutBlock}</span>
+                          </p>
+                          <p className="text-xs text-gray-500 mt-2">
+                            Blocks remaining: {Math.max(0, timeoutBlock - currentBlock)}
+                          </p>
+                        </div>
                       )}
-                    >
-                      {isClaimingRefund ? (
-                        <>
-                          <Loader2 className="h-4 w-4 animate-spin" />
-                          Claiming...
-                        </>
-                      ) : (
-                        <>
-                          <CheckCircle2 className="h-4 w-4" />
-                          Claim Refund
-                        </>
+                      {(currentBlock === null || timeoutBlock === null) && (
+                        <p className="text-xs text-gray-500 mt-2">
+                          Loading block information...
+                        </p>
                       )}
-                    </button>
-                    <p className="text-xs text-center text-gray-500">
-                      {currentBlock < timeoutBlock
-                        ? `🔒 Timelock Active. Funds will unlock at Block ${timeoutBlock} (Current: ${currentBlock}).`
-                        : '🔓 Timelock Expired. You can now reclaim your funds.'}
-                    </p>
+                    </div>
+                    {currentBlock !== null && timeoutBlock !== null && (
+                      <>
+                        <button
+                          onClick={handleClaimRefund}
+                          disabled={isClaimingRefund || currentBlock < timeoutBlock}
+                          title={
+                            currentBlock < timeoutBlock
+                              ? `🔒 Timelock Active. Funds will unlock at Block ${timeoutBlock} (Current: ${currentBlock}).`
+                              : '🔓 Timelock Expired. You can now reclaim your funds.'
+                          }
+                          className={cn(
+                            'w-full flex items-center justify-center gap-2 rounded-lg border border-gray-700 px-4 py-2',
+                            'text-sm font-medium transition-colors',
+                            'focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 focus:ring-offset-gray-900',
+                            'disabled:cursor-not-allowed disabled:opacity-50',
+                            currentBlock < timeoutBlock
+                              ? 'bg-gray-700 text-gray-400'
+                              : 'bg-green-600 text-white hover:bg-green-700'
+                          )}
+                        >
+                          {isClaimingRefund ? (
+                            <>
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                              Claiming...
+                            </>
+                          ) : (
+                            <>
+                              <CheckCircle2 className="h-4 w-4" />
+                              Claim Refund
+                            </>
+                          )}
+                        </button>
+                        <p className="text-xs text-center text-gray-500">
+                          {currentBlock < timeoutBlock
+                            ? `🔒 Timelock Active. Funds will unlock at Block ${timeoutBlock} (Current: ${currentBlock}).`
+                            : '🔓 Timelock Expired. You can now reclaim your funds.'}
+                        </p>
+                      </>
+                    )}
                   </>
                 )}
                 {commitError && (

@@ -408,17 +408,13 @@ export class MockArkClient {
   }
 
   /**
-   * Claims a refund by adding a new VTXO
-   * Simulates spending the VTXO via the refund path
+   * Claims a refund by lifting funds back to L2
+   * Uses the Lift mechanism to ensure the ASP knows about the VTXO
    */
-  async claimRefund(amount: number, address: string): Promise<void> {
-    // Add a new VTXO (simulating the refund)
-    this.addVtxo(address, amount);
-    
-    // Optional: Log that we would construct the witness stack
-    // Note: In a real implementation, we would construct the witness stack here
-    // using getRefundWitness(signature, lockParams, swapResult)
-    console.log('Witness Stack Constructed (refund path)');
+  async claimRefund(amount: number, address: string): Promise<{ status: string; nextRound: string }> {
+    // Use lift to recover L1 funds and re-deposit them to L2
+    // This ensures the ASP generates the VTXO and knows the ID
+    return await this.lift(address, amount);
   }
 
   /**
