@@ -36,6 +36,7 @@ export function Dashboard() {
   const [liftStatus, setLiftStatus] = useState<string | null>(null);
   const previousBalanceRef = useRef<number>(balance);
   const l1AddressInputRef = useRef<HTMLInputElement | null>(null);
+  const [loadingText, setLoadingText] = useState<string | null>(null);
 
   // Clear lift status when balance updates (indicating round finalized)
   useEffect(() => {
@@ -141,14 +142,36 @@ export function Dashboard() {
     setIsCommitting(true);
     setCommitError(null);
     setSwapStep('locking');
+    setLoadingText('Broadcasting transaction...');
 
     try {
       // 1. Send L2 transaction (lock funds to HTLC address)
       // The send method handles coin selection, signing, broadcasting, and marking inputs as spent
       const l2TxId = await mockArkClient.send(amount, lockAddress);
 
-      // 2. Refresh balance and VTXOs
-      await refreshBalance();
+      // 2. Wait for Round Finalization - poll until balance stabilizes
+      setLoadingText('Waiting for Round Finalization...');
+      
+      // Capture initial balance before the transaction
+      const initialBalance = balance;
+      let attempts = 0;
+      const maxAttempts = 10;
+      
+      // Poll until balance > 0 (change VTXO has arrived) or timeout
+      while (attempts < maxAttempts) {
+        await new Promise(resolve => setTimeout(resolve, 1000)); // Wait 1 second
+        await refreshBalance(); // Force fetch from ASP
+        
+        // Check if balance has recovered (user gets change back)
+        // Read directly from client after refreshBalance updates localStorage
+        // We check if balance > 0 OR if balance has changed from initial (indicating round finalized)
+        const currentBalance = address ? mockArkClient.getBalance(address) : 0;
+        if (currentBalance > 0 || currentBalance !== initialBalance) {
+          break; // Balance has stabilized
+        }
+        
+        attempts++;
+      }
 
       // 3. Check Chaos Mode
       if (chaosMode) {
@@ -165,7 +188,8 @@ export function Dashboard() {
           setCurrentBlock(current);
           setTimeoutBlock(targetBlock);
           
-          // Transition to refund view immediately
+          // Transition to refund view
+          setLoadingText(null);
           setSwapStep('pendingRefund');
         } catch (err) {
           console.error("Failed to get bitcoin info", err);
@@ -176,6 +200,7 @@ export function Dashboard() {
           setStartBlock(current);
           setCurrentBlock(current);
           setTimeoutBlock(targetBlock);
+          setLoadingText(null);
           setSwapStep('pendingRefund');
         }
       } else {
@@ -184,11 +209,13 @@ export function Dashboard() {
 
         // 4. Show success
         setL1TxId(commitResponse.l1TxId);
+        setLoadingText(null);
         setSwapStep('success');
       }
     } catch (err) {
       console.error("Swap commit failed", err);
       setCommitError(err instanceof Error ? err.message : 'Failed to commit swap');
+      setLoadingText(null);
       setSwapStep('quote');
     } finally {
       setIsCommitting(false);
@@ -210,6 +237,7 @@ export function Dashboard() {
     setTimeoutBlock(null);
     setSelectedVtxos([]);
     setIsManualSelection(false);
+    setLoadingText(null);
     if (pollingIntervalRef.current) {
       clearInterval(pollingIntervalRef.current);
       pollingIntervalRef.current = null;
@@ -583,8 +611,12 @@ export function Dashboard() {
             {swapStep === 'locking' && (
               <div className="flex flex-col items-center justify-center py-8">
                 <Loader2 className="h-8 w-8 animate-spin text-blue-400 mb-4" />
-                <p className="text-sm font-medium text-gray-300">Processing swap...</p>
-                <p className="text-xs text-gray-500 mt-2">Locking funds and executing payout</p>
+                <p className="text-sm font-medium text-gray-300">
+                  {loadingText || 'Processing swap...'}
+                </p>
+                {!loadingText && (
+                  <p className="text-xs text-gray-500 mt-2">Locking funds and executing payout</p>
+                )}
               </div>
             )}
 
