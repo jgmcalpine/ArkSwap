@@ -334,17 +334,28 @@ export class MockArkClient {
     const txHashBuffer = Buffer.from(txHashHex, 'hex');
 
     // --- BIP-86 SIGNING LOGIC START ---
-    
-    // A. Get the internal pubkey (x-only, 32 bytes)
+
+    // 1. Prepare the Private Key Buffer (32 bytes)
+    if (!keyPair.privateKey) throw new Error('Missing private key');
+    let privateKeyBuffer = keyPair.privateKey.length === 33 
+      ? keyPair.privateKey.slice(1) 
+      : keyPair.privateKey;
+
+    // 2. Handle Key Parity (Critical for Taproot)
+    // If the public key has an ODD Y-coordinate (prefix 0x03), 
+    // we must negate the private key before tweaking to match the x-only pubkey expectation.
+    if (keyPair.publicKey[0] === 0x03) {
+      privateKeyBuffer = (ecc as any).privateNegate(privateKeyBuffer);
+    }
+
+    // 3. Get x-only Pubkey
     const internalPubkey = keyPair.publicKey.slice(1, 33);
 
-    // B. Calculate Tweak: Hash_TapTweak(InternalPubkey)
+    // 4. Calculate Tweak
     const tweakHash = bitcoin.crypto.taggedHash('TapTweak', internalPubkey);
 
-    // C. Tweak Private Key: d' = d + t
-    if (!keyPair.privateKey) throw new Error('Missing private key');
-    
-    const tweakedPrivateKey = (ecc as any).privateAdd(keyPair.privateKey, tweakHash);
+    // 5. Apply Tweak
+    const tweakedPrivateKey = (ecc as any).privateAdd(privateKeyBuffer, tweakHash);
     if (!tweakedPrivateKey) throw new Error('Failed to tweak private key');
 
     // --- BIP-86 SIGNING LOGIC END ---
