@@ -1,7 +1,7 @@
 import { Injectable, Logger, OnModuleInit, HttpException, HttpStatus } from '@nestjs/common';
 import { HttpService } from '@nestjs/axios';
 import { firstValueFrom } from 'rxjs';
-import { AxiosError } from 'axios';
+import { isAxiosError } from 'axios';
 import { BITCOIN_RPC_URL, BITCOIN_RPC_USER, BITCOIN_RPC_PASS } from './bitcoin.constants';
 
 interface JsonRpcRequest {
@@ -135,13 +135,13 @@ export class BitcoinService implements OnModuleInit {
         );
         
         // Try to extract raw RPC error if available (for more detailed logging)
-        if ((error as any).response?.data?.error) {
-          const rpcError = (error as any).response.data.error;
+        if (isAxiosError(error) && error.response?.data?.error) {
+          const rpcError = error.response.data.error;
           this.logger.error(
             `Raw Bitcoin RPC Error: ${rpcError.message} (code: ${rpcError.code})`,
           );
         }
-      } else if (error instanceof AxiosError) {
+      } else if (isAxiosError(error)) {
         // Handle axios-specific errors (network issues, timeouts, etc.)
         if (error.response?.data) {
           const responseData = error.response.data;

@@ -1,3 +1,34 @@
+/**
+ * Interface for Elliptic Curve Cryptography library operations
+ * Matches the methods we use from @bitcoinerlab/secp256k1
+ */
+export interface ECCLibrary {
+  /**
+   * Checks if a point is valid on the curve
+   */
+  isPoint(p: Uint8Array): boolean;
+
+  /**
+   * Verifies a Schnorr signature
+   */
+  verifySchnorr(hash: Uint8Array, pubkey: Uint8Array, signature: Uint8Array): boolean;
+
+  /**
+   * Signs a hash using Schnorr signature scheme
+   */
+  signSchnorr(hash: Uint8Array, privateKey: Uint8Array, extraEntropy?: Uint8Array): Uint8Array;
+
+  /**
+   * Adds a tweak to a private key (returns null if result is invalid)
+   */
+  privateAdd(privateKey: Uint8Array, tweak: Uint8Array): Uint8Array | null;
+
+  /**
+   * Negates a private key
+   */
+  privateNegate(privateKey: Uint8Array): Uint8Array;
+}
+
 export type SwapQuote = {
   id: string;
   amount: number;

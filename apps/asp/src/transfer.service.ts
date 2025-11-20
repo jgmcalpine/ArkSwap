@@ -1,11 +1,11 @@
 import { Injectable, BadRequestException, OnModuleInit } from '@nestjs/common';
 import * as bitcoin from 'bitcoinjs-lib';
-import { getTxHash, ArkTransaction } from '@arkswap/protocol';
+import { getTxHash, ArkTransaction, ECCLibrary } from '@arkswap/protocol';
 import { VtxoStore } from './vtxo-store.service';
 
 @Injectable()
 export class TransferService implements OnModuleInit {
-  private ecc: any;
+  private ecc: ECCLibrary;
 
   constructor(private readonly vtxoStore: VtxoStore) {}
 
@@ -15,8 +15,11 @@ export class TransferService implements OnModuleInit {
     // both CommonJS and ESM import styles explicitly.
     try {
       const rawEcc = require('@bitcoinerlab/secp256k1');
-      this.ecc = rawEcc.default || rawEcc;
-      bitcoin.initEccLib(this.ecc);
+      const eccLib = rawEcc.default || rawEcc;
+      // Initialize bitcoinjs-lib with the raw library (it implements the full interface)
+      bitcoin.initEccLib(eccLib);
+      // Store typed reference for our crypto operations
+      this.ecc = eccLib as ECCLibrary;
       console.log('✅ ASP Crypto Initialized Successfully');
     } catch (e) {
       console.error('❌ Failed to initialize crypto:', e);

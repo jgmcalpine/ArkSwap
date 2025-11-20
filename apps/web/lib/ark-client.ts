@@ -1,7 +1,6 @@
 import { walletTools } from './crypto';
 import type { Vtxo, ArkTransaction, ArkInput, ArkOutput } from '@arkswap/protocol';
 import { getTxHash } from '@arkswap/protocol';
-import ecc from '@bitcoinerlab/secp256k1';
 
 const WIF_STORAGE_KEY = 'ark_wallet_wif';
 const VTXO_STORAGE_KEY = 'ark_vtxos';
@@ -345,7 +344,7 @@ export class MockArkClient {
     // If the public key has an ODD Y-coordinate (prefix 0x03), 
     // we must negate the private key before tweaking to match the x-only pubkey expectation.
     if (keyPair.publicKey[0] === 0x03) {
-      privateKeyBuffer = (ecc as any).privateNegate(privateKeyBuffer);
+      privateKeyBuffer = Buffer.from(walletTools.ecc.privateNegate(privateKeyBuffer));
     }
 
     // 3. Get x-only Pubkey
@@ -355,7 +354,7 @@ export class MockArkClient {
     const tweakHash = bitcoin.crypto.taggedHash('TapTweak', internalPubkey);
 
     // 5. Apply Tweak
-    const tweakedPrivateKey = (ecc as any).privateAdd(privateKeyBuffer, tweakHash);
+    const tweakedPrivateKey = walletTools.ecc.privateAdd(privateKeyBuffer, tweakHash);
     if (!tweakedPrivateKey) throw new Error('Failed to tweak private key');
 
     // --- BIP-86 SIGNING LOGIC END ---
@@ -366,7 +365,7 @@ export class MockArkClient {
     // 5. Sign Inputs
     const inputs: ArkInput[] = selected.map((coin) => {
       // Sign using the TWEAKED private key
-      const signatureRaw = (ecc as any).signSchnorr(txHashBuffer, tweakedPrivateKey);
+      const signatureRaw = walletTools.ecc.signSchnorr(txHashBuffer, tweakedPrivateKey);
       const signatureHex = Buffer.from(signatureRaw).toString('hex');
       
       return {
