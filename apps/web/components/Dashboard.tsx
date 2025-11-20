@@ -35,6 +35,7 @@ export function Dashboard() {
   const [isManualSelection, setIsManualSelection] = useState(false);
   const [liftStatus, setLiftStatus] = useState<string | null>(null);
   const previousBalanceRef = useRef<number>(balance);
+  const l1AddressInputRef = useRef<HTMLInputElement | null>(null);
 
   // Clear lift status when balance updates (indicating round finalized)
   useEffect(() => {
@@ -107,6 +108,14 @@ export function Dashboard() {
       setLockAddress(lockResultData.address);
       setLockResult(lockResultData);
       setQuote(quoteData);
+      
+      // Scroll to L1 address input after a short delay to allow DOM update
+      setTimeout(() => {
+        l1AddressInputRef.current?.scrollIntoView({ 
+          behavior: 'smooth', 
+          block: 'center' 
+        });
+      }, 100);
     } catch (err) {
       console.error("Quote request failed", err);
       setQuoteError(err instanceof Error ? err.message : 'Failed to request quote');
@@ -506,6 +515,7 @@ export function Dashboard() {
                         Your L1 Address (where you want to receive BTC)
                       </label>
                       <input
+                        ref={l1AddressInputRef}
                         type="text"
                         value={userL1Address}
                         onChange={(e) => setUserL1Address(e.target.value)}

@@ -78,12 +78,13 @@ export function WalletProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const disconnect = useCallback(() => {
+    // Clear localStorage data (WIF and VTXOs)
+    mockArkClient.clearWallet();
+    // Clear React state
     setAddress(null);
     setIsConnected(false);
     setBalance(0);
     setVtxos([]);
-    // Note: WIF is stored in MockArkClient, not here
-    // For a full disconnect, we'd need to clear it from MockArkClient
   }, []);
 
   const refreshBalance = useCallback(async () => {

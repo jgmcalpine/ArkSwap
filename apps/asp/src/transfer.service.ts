@@ -32,9 +32,6 @@ export class TransferService implements OnModuleInit {
     const txHash = await getTxHash(inputsWithoutSigs, tx.outputs);
     const txHashBuffer = Buffer.from(txHash, 'hex');
 
-    // Log hash BEFORE verification (Black Box Debugging)
-    console.log('[Server] Verifying Hash:', txHash);
-
     let totalInputAmount = 0;
     let totalOutputAmount = 0;
 
@@ -66,10 +63,6 @@ export class TransferService implements OnModuleInit {
         
         const pubkey = Buffer.from(outputScript.slice(2, 34));
         const signature = Buffer.from(input.signature, 'hex');
-
-        // Log BEFORE verification (Black Box Debugging)
-        console.log('[Server] VTXO Pubkey:', pubkey.toString('hex'));
-        console.log('[Server] Input Signature:', input.signature);
 
         // Verify Schnorr Signature
         const isValid = this.ecc.verifySchnorr(txHashBuffer, pubkey, signature);

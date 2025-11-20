@@ -172,8 +172,12 @@ export class MockArkClient {
   selectCoins(address: string, targetAmount: number): Vtxo[] {
     const unspentVtxos = this.getVtxos(address);
     
+    // SECURITY FIX: Ensure we only select coins that match the current address
+    // This prevents trying to sign coins from a previous wallet session
+    const myCoins = unspentVtxos.filter(v => v.address === address);
+    
     // Sort by amount descending for better selection
-    const sorted = [...unspentVtxos].sort((a, b) => b.amount - a.amount);
+    const sorted = [...myCoins].sort((a, b) => b.amount - a.amount);
     
     let selected: Vtxo[] = [];
     let total = 0;
@@ -289,7 +293,7 @@ export class MockArkClient {
    * Returns the transferId (L2 transaction hash)
    */
   async send(amount: number, toAddress: string): Promise<string> {
-    const { ECPair } = walletTools;
+    const { bitcoin, ECPair, network } = walletTools;
     const keyPair = await this.getKeyPair();
     const myAddress = await this.getAddress();
     
@@ -297,7 +301,7 @@ export class MockArkClient {
       throw new Error('No wallet found. Please create a wallet first.');
     }
 
-    // 1. Select Coins
+    // 1. Select Coins (With Address Filter for safety)
     const selected = this.selectCoins(myAddress, amount);
     if (selected.length === 0) {
       throw new Error('Insufficient funds');
@@ -315,97 +319,55 @@ export class MockArkClient {
       { address: toAddress, amount },
     ];
 
-    // Add change output if necessary
     if (change > 0) {
       outputs.push({ address: myAddress, amount: change });
     }
 
-    // 3. Prepare Inputs (Without Signatures first)
-    // We need the TXID/Vout to calculate the hash
+    // 3. Prepare Inputs
     const inputsUnsigned = selected.map(coin => ({
       txid: coin.txid,
       vout: coin.vout,
     }));
 
-    // 4. Calculate Transaction Hash
-    // This is what we sign. It commits to the inputs and outputs.
+    // 4. Calculate Hash
     const txHashHex = await getTxHash(inputsUnsigned, outputs);
     const txHashBuffer = Buffer.from(txHashHex, 'hex');
 
-    // 5. Sign Inputs (BIP-86 Compliant)
-    const { bitcoin: bitcoinLib } = walletTools;
-    const privateKey = keyPair.privateKey;
-    if (!privateKey) {
-      throw new Error('Private key not available');
-    }
+    // --- BIP-86 SIGNING LOGIC START ---
     
-    // Ensure private key is 32 bytes (x-only for Schnorr)
-    // ECPair privateKey is 33 bytes (with prefix), we need 32 bytes for Schnorr
-    const privateKeyBuffer = privateKey.length === 33 ? privateKey.slice(1) : privateKey;
+    // A. Get the internal pubkey (x-only, 32 bytes)
+    const internalPubkey = keyPair.publicKey.slice(1, 33);
+
+    // B. Calculate Tweak: Hash_TapTweak(InternalPubkey)
+    const tweakHash = bitcoin.crypto.taggedHash('TapTweak', internalPubkey);
+
+    // C. Tweak Private Key: d' = d + t
+    if (!keyPair.privateKey) throw new Error('Missing private key');
     
-    // Verify private key is 32 bytes
-    if (privateKeyBuffer.length !== 32) {
-      throw new Error(`Invalid private key length: ${privateKeyBuffer.length} (expected 32)`);
-    }
+    const tweakedPrivateKey = (ecc as any).privateAdd(keyPair.privateKey, tweakHash);
+    if (!tweakedPrivateKey) throw new Error('Failed to tweak private key');
 
-    // Get the x-only internal pubkey (32 bytes)
-    const internalPubkey = keyPair.publicKey.slice(1, 33); // x-only
+    // --- BIP-86 SIGNING LOGIC END ---
 
-    // 1. Calculate Tweak (BIP-86)
-    // If there is no merkle root (Key Path), the tweak is Hash_TapTweak(Pubkey)
-    const tweakHash = bitcoinLib.crypto.taggedHash('TapTweak', internalPubkey);
+    // Create tweaked keypair for validation (needed for proper key format)
+    const tweakedKeyPair = ECPair.fromPrivateKey(Buffer.from(tweakedPrivateKey), { network });
 
-    // 2. Tweak the Private Key
-    // We need direct access to the ECC library for this math
-    if (!ecc || !(ecc as any).privateAdd) {
-      throw new Error('ECC Lib missing privateAdd');
-    }
-
-    const tweakedPrivateKey = (ecc as any).privateAdd(privateKeyBuffer, tweakHash);
-
-    if (!tweakedPrivateKey) {
-      throw new Error('Failed to tweak private key');
-    }
-
-    // 3. Log for Debugging
-    console.log('[Client] Internal Pubkey:', internalPubkey.toString('hex'));
-    console.log('[Client] Signing Hash:', txHashHex);
-
-    // 4. Sign with TWEAKED Key (Direct ECC - No ECPair abstraction)
+    // 5. Sign Inputs
     const inputs: ArkInput[] = selected.map((coin) => {
-      // Sign the hash using Schnorr with the tweaked private key
-      // @bitcoinerlab/secp256k1 signSchnorr(messageHash, privateKey)
-      // Note: signSchnorr returns Uint8Array, not Buffer
-      const signatureRaw = (ecc as any).signSchnorr(txHashBuffer, Buffer.from(tweakedPrivateKey));
-      
-      // CRITICAL: Wrap Uint8Array in Buffer.from() before calling toString('hex')
-      // Direct .toString('hex') on Uint8Array produces CSV string, not hex
+      // Sign using the TWEAKED private key
+      const signatureRaw = (ecc as any).signSchnorr(txHashBuffer, tweakedPrivateKey);
       const signatureHex = Buffer.from(signatureRaw).toString('hex');
-      
-      // Log signature after creation
-      console.log('[Client] Signature:', signatureHex);
-      
-      // Validate signature was created
-      if (!signatureHex || signatureHex.length === 0) {
-        throw new Error('Failed to create signature');
-      }
-      
-      // Schnorr signatures are 64 bytes = 128 hex characters
-      if (signatureHex.length !== 128) {
-        throw new Error(`Invalid signature length: ${signatureHex.length} (expected 128)`);
-      }
       
       return {
         txid: coin.txid,
         vout: coin.vout,
-        signature: signatureHex, // <--- CRITICAL: Hex String, not Buffer
+        signature: signatureHex,
       };
     });
 
-    // 6. Create Transaction
     const tx: ArkTransaction = { inputs, outputs };
 
-    // 7. Broadcast to ASP
+    // 6. Broadcast
     const response = await fetch('http://localhost:7070/v1/transfer', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -419,8 +381,7 @@ export class MockArkClient {
 
     const result = await response.json();
 
-    // 8. Update Local State
-    // Mark inputs as spent
+    // 7. Update State
     const allVtxos = this.getStorage();
     if (allVtxos[myAddress]) {
       allVtxos[myAddress] = allVtxos[myAddress].map(v => {
@@ -432,10 +393,7 @@ export class MockArkClient {
       this.setStorage(allVtxos);
     }
 
-    // Note: We rely on the Poller (Chunk 12) to pick up the new Change VTXO
-    // when the round finalizes. We don't add it manually here to avoid desync.
-
-    return result.transferId || result.txid; // The Round/Transfer ID
+    return result.transferId || result.txid;
   }
 
   /**
@@ -450,6 +408,16 @@ export class MockArkClient {
     // Note: In a real implementation, we would construct the witness stack here
     // using getRefundWitness(signature, lockParams, swapResult)
     console.log('Witness Stack Constructed (refund path)');
+  }
+
+  /**
+   * Clears all wallet data from localStorage (WIF and VTXOs)
+   * Used when disconnecting a wallet
+   */
+  clearWallet(): void {
+    if (typeof window === 'undefined') return;
+    localStorage.removeItem(WIF_STORAGE_KEY);
+    localStorage.removeItem(VTXO_STORAGE_KEY);
   }
 }
 
