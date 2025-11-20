@@ -16,7 +16,7 @@
 ![License](https://img.shields.io/badge/license-MIT-blue.svg)
 ![TypeScript](https://img.shields.io/badge/language-TypeScript-3178c6.svg)
 ![Stack](https://img.shields.io/badge/stack-Next.js%20|%20NestJS%20|%20Docker-000000.svg)
-![Status](https://img.shields.io/badge/status-PoC%20(Functional)-green.svg)
+![Assurance](https://img.shields.io/badge/testing-Playwright%20E2E-green.svg)
 
 ## 🌊 Overview
 
@@ -28,20 +28,21 @@ Unlike standard Ark wallets that only perform simple transfers, ArkSwap acts as 
 *   **Programmable L2:** Demonstrates VTXO transfers into custom Taproot scripts (not just P2PK).
 *   **Trustless:** Swaps are secured by mathematical timelocks. If the Market Maker fails to pay, the protocol enforces a refund.
 *   **Atomic:** The off-chain VTXO transfer and the on-chain L1 settlement are cryptographically linked.
-*   **Privacy-Preserving:** Leverages Ark's native CoinJoin structure to break links between the payer and the savings destination.
+*   **Resilient:** Built with reactive state management and automated session recovery.
 
 ## 🛠 Tech Stack
 
 This project is organized as a **TurboRepo** monorepo representing a complete L2 ecosystem.
 
 *   **Apps:**
-    *   `apps/web`: **Next.js 14** - The client-side **Ark Wallet**. Manages VTXO state, performs Coin Selection, and constructs BIP-86 Taproot signatures.
-    *   `apps/asp`: **NestJS** - A custom, lightweight **Ark Service Provider**. It coordinates rounds, manages the VTXO set, and validates programmable transfers.
+    *   `apps/web`: **Next.js 14** - The client-side **Ark Wallet**. Features **TanStack Query** for reactive state, **Zod** for runtime validation, and **Coin Control** for UTXO management.
+    *   `apps/asp`: **NestJS** - A custom, lightweight **Ark Service Provider**. It coordinates rounds, manages the VTXO set, and validates programmable transfers via Schnorr signatures.
     *   `apps/api`: **NestJS** - The **Market Maker** backend. It quotes swaps, watches the ASP for locked funds, and broadcasts L1 Bitcoin transactions.
 *   **Packages:**
     *   `packages/protocol`: Shared **TypeScript** library containing the core Bitcoin/Ark cryptographic logic (HTLC scripts, deterministic hashing, witness construction).
 *   **Infrastructure:**
     *   **Docker:** Orchestrates the local "Universe": Bitcoin Core (Regtest), ASP, Postgres, and Redis.
+    *   **Playwright:** End-to-End testing suite ensuring the critical path works from Lift to Swap to Exit.
 
 ## 🚀 Getting Started
 
@@ -70,7 +71,8 @@ docker-compose up -d --build
 Start the Frontend (`localhost:3000`) and Backend (`localhost:3001`).
 ```bash
 # From the root directory
-pnpm dev
+# Note: Excludes the ASP since it runs in Docker
+pnpm dev --filter=!@arkswap/asp
 ```
 
 ### 4. "God Mode" (Funding & Simulation)
@@ -93,57 +95,37 @@ Since this runs on Regtest, you control the blockchain. We provide scripts to mi
 curl -X POST http://localhost:3001/faucet/maker
 ```
 
-## 🗺 Roadmap & Progress
+**Run automated tests:**
+```bash
+# Validates the full user journey happy-path via headless browser
+pnpm --filter @arkswap/web test:e2e
+```
 
-We are building ArkSwap in distinct "Chunks" to ensure security and architectural soundness.
+## 🚀 Roadmap to Mainnet (Call for Contributors)
 
-- [x] **Phase 1: Scaffolding** (Monorepo setup, Docker environment)
-- [x] **Phase 2: Infrastructure** (Bitcoin Regtest, Postgres, Redis connectivity)
-- [x] **Phase 3: Backend Connectivity** (NestJS <-> Bitcoin RPC connection)
-- [x] **Phase 4: Frontend Wallet** (Local non-custodial wallet, state persistence)
-- [x] **Phase 5: God Mode** (Faucets, Mining simulation, DevTools)
-- [x] **Phase 6: The Protocol** (Taproot HTLC Script implementation & 100% test coverage)
-- [x] **Phase 7: The Handshake** (Quote generation & Cryptographic negotiation)
-- [x] **Phase 8: Execution** (Happy Path: Locking funds & Claiming L1 Bitcoin)
-- [x] **Phase 9: The Safety Net** (Unhappy Path: Unilateral Exit/Refund flow)
-- [x] **Phase 10: Infrastructure - The Real ASP** (Build minimal Ark Service Provider)
-- [x] **Phase 11: VTXO State Management** (Implement real Ark Wallet SDK)
-- [x] **Phase 12: The "Lift" - Onboarding** (Lift bitcoin onto the Ark)
-- [x] **Phase 13: The "Off-Chain" HTLC Funding** (Spending VTXOs into HTLCs off-chain)
+We have built the "Steel Thread"—a fully functional Swap and Refund flow on Regtest. To elevate ArkSwap from a Reference Architecture to a Production Application, we are seeking contributors for the following critical infrastructure pieces.
 
-## 🔮 Out of Scope / Future Improvements
+If you are interested in tackling one of these, please open an Issue to discuss the implementation plan.
 
-While ArkSwap demonstrates the logic of the protocol, a production deployment would require replacing several simulated components with robust infrastructure.
+### 1. Persistence Layer (Priority: High)
+*   **The Task:** Wire up the scaffolded **PostgreSQL** database to the NestJS Backend (`apps/api` and `apps/asp`).
+*   **The Goal:** Ensure all VTXO states, active Swaps, and Round data survive a Docker container restart. Currently, this data exists only in memory.
 
-### 1. Atomic Lifting (Trustless Onboarding)
-**Current State**: We simulate the "Lifting" process via a direct API call. The ASP simply credits the user with a VTXO.
+### 2. Atomic Lifting (Priority: High)
+*   **The Task:** Implement the "Trustless Entry" flow.
+*   **The Goal:** Replace the current API-triggered lift with a true Bitcoin L1 listener. The User should broadcast a pre-signed funding transaction to L1, and the ASP should detect this via a Chain Indexer to automatically mint the VTXO, removing the need to trust the ASP's API.
 
-**Production Requirement**: Users must construct and broadcast a Bitcoin L1 transaction that funds the Ark Covenant directly. The act of funding on-chain forces the creation of the VTXO off-chain, removing the need to trust the ASP.
+### 3. Secure Key Management
+*   **The Task:** Integrate a browser extension wallet (e.g., Alby, Unisat) or Hardware Wallet support.
+*   **The Goal:** Remove `localStorage` key management entirely. The web app should request signatures (SIP-style) rather than holding private keys.
 
-### 2. On-Chain Round Settlement
-**Current State**: Our custom ASP "finalizes" rounds in memory. It checks signatures and updates the local VTXO ledger, but it does not broadcast a transaction to Bitcoin L1.
+### 4. The "Double" Unilateral Exit
+*   **The Task:** Implement the protocol-level exit strategy in the Client.
+*   **The Goal:** Allow users to construct and broadcast the L1 "Tree Unfolding" transactions if the ASP goes offline. This requires tracking the Merkle Path for every VTXO in the client state.
 
-**Production Requirement**: The core security of Ark relies on the ASP aggregating all off-chain transfers into a single, massive Bitcoin transaction (The Round Tx) and broadcasting it to the mainnet. VTXOs are only truly valid once that Round Tx is confirmed or in the mempool.
-
-### 3. Covenant Enforcement (Connectors)
-**Current State**: We validate VTXO ownership using TypeScript logic (transfer.service.ts).
-
-**Production Requirement**: Real Ark VTXOs are secured by Covenants (complex trees of pre-signed Bitcoin transactions). The ASP must enforce these rules cryptographically by ensuring every VTXO output is logically connected to the previous Round Tx via shared UTXO connectors.
-
-### 4. Secure Key Storage
-**Current State**: Private keys are stored in the browser's localStorage. This is acceptable for Regtest "play money" but dangerous for real funds.
-
-**Production Requirement**: Integration with a dedicated Bitcoin Browser Extension (like Alby or a native Ark extension) or Hardware Wallet (Ledger/Trezor). The web app should request signatures, never access raw private keys.
-
-### 5. Persistence & Crash Recovery
-**Current State**: The ASP and Market Maker store active swaps and VTXO sets in Memory. If the Docker container restarts, the state is lost.
-
-**Production Requirement**: All state must be persisted to the PostgreSQL database (which is currently scaffolded but under-utilized) to ensure users don't lose funds during server maintenance.
-
-### 6. Ark Unilateral Exit (The "Double" Exit)
-**Current State**: ArkSwap implements the Swap Refund (Level 1 Safety), which allows users to recover funds if the Market Maker fails to pay. We rely on the ASP remaining online to process standard VTXO transfers.
-
-**Production Requirement**: A fully trustless Ark Wallet must implement the Protocol Exit (Level 2 Safety). This protects users if the ASP itself disappears or censors transactions. It requires the client to store the full Merkle path of pre-signed transactions for every VTXO. To exit, the user must broadcast a specific sequence of L1 transactions (Pool -> Connector -> Branch -> Leaf) to "unfold" the tree on-chain without the ASP's permission.
+### 5. Covenant Enforcement
+*   **The Task:** Upgrade the ASP's `TransferService` to enforce graph topology.
+*   **The Goal:** Ensure input VTXOs technically correspond to valid Connector outputs from previous rounds, preventing the ASP from equivocating or double-spending the liquidity pool.
 
 ## 🤝 Contributing
 
