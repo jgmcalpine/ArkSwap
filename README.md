@@ -110,7 +110,6 @@ We are building ArkSwap in distinct "Chunks" to ensure security and architectura
 - [x] **Phase 11: VTXO State Management** (Implement real Ark Wallet SDK)
 - [x] **Phase 12: The "Lift" - Onboarding** (Lift bitcoin onto the Ark)
 - [x] **Phase 13: The "Off-Chain" HTLC Funding** (Spending VTXOs into HTLCs off-chain)
-- [ ] **Phase 14: The Double Unilateral Exit** (L2 -> L1 protocol exit)
 
 ## 🔮 Out of Scope / Future Improvements
 
@@ -140,6 +139,11 @@ While ArkSwap demonstrates the logic of the protocol, a production deployment wo
 **Current State**: The ASP and Market Maker store active swaps and VTXO sets in Memory. If the Docker container restarts, the state is lost.
 
 **Production Requirement**: All state must be persisted to the PostgreSQL database (which is currently scaffolded but under-utilized) to ensure users don't lose funds during server maintenance.
+
+### 6. Ark Unilateral Exit (The "Double" Exit)
+**Current State**: ArkSwap implements the Swap Refund (Level 1 Safety), which allows users to recover funds if the Market Maker fails to pay. We rely on the ASP remaining online to process standard VTXO transfers.
+
+**Production Requirement**: A fully trustless Ark Wallet must implement the Protocol Exit (Level 2 Safety). This protects users if the ASP itself disappears or censors transactions. It requires the client to store the full Merkle path of pre-signed transactions for every VTXO. To exit, the user must broadcast a specific sequence of L1 transactions (Pool -> Connector -> Branch -> Leaf) to "unfold" the tree on-chain without the ASP's permission.
 
 ## 🤝 Contributing
 
