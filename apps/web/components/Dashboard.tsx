@@ -300,21 +300,21 @@ export function Dashboard() {
   }
 
   return (
-    <div className="mx-auto max-w-4xl px-4 py-12 sm:px-6 lg:px-8">
+    <div className="mx-auto max-w-4xl px-4 py-12 sm:px-6 lg:px-8 w-full overflow-x-hidden">
       <div className="space-y-6">
         {/* Balance Card */}
         <div className="rounded-xl border border-gray-800 bg-gray-900/50 p-6 backdrop-blur-sm">
-          <div className="flex items-center justify-between">
-            <div>
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+            <div className="flex-1 min-w-0">
               <h2 className="text-sm font-medium text-gray-400">Your Ark Balance</h2>
               <p className="mt-2 text-3xl font-bold text-white">
                 {balance.toLocaleString()} <span className="text-xl text-gray-400">ARK</span>
               </p>
               {address && (
-                <p className="mt-2 text-xs font-mono text-gray-500">{address}</p>
+                <p className="mt-2 text-xs font-mono text-gray-500 break-all">{address}</p>
               )}
             </div>
-            <div className="rounded-full bg-blue-500/10 p-4">
+            <div className="rounded-full bg-blue-500/10 p-4 flex-shrink-0">
               <Coins className="h-8 w-8 text-blue-400" />
             </div>
           </div>
@@ -322,17 +322,17 @@ export function Dashboard() {
 
         {/* Deposit Card */}
         <div className="rounded-xl border border-gray-800 bg-gray-900/50 p-6 backdrop-blur-sm">
-          <div className="flex items-center justify-between">
-            <div>
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+            <div className="flex-1 min-w-0">
               <h3 className="text-sm font-medium text-gray-400">Simulate Employer Deposit</h3>
               <p className="mt-1 text-sm text-gray-500">
                 Initiate a deposit that will be processed in the next Round (5 seconds)
               </p>
               {liftStatus && (
-                <p className="mt-2 text-sm text-blue-400">{liftStatus}</p>
+                <p className="mt-2 text-sm text-blue-400 break-words">{liftStatus}</p>
               )}
               {faucetError && (
-                <p className="mt-2 text-sm text-red-400">{faucetError}</p>
+                <p className="mt-2 text-sm text-red-400 break-words">{faucetError}</p>
               )}
             </div>
             <button
@@ -343,7 +343,8 @@ export function Dashboard() {
                 'text-sm font-medium text-gray-400 transition-colors',
                 'hover:bg-gray-700 hover:text-gray-300',
                 'focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-gray-900',
-                'disabled:cursor-not-allowed disabled:opacity-50'
+                'disabled:cursor-not-allowed disabled:opacity-50',
+                'w-full sm:w-auto flex-shrink-0'
               )}
             >
               <Droplets className="h-4 w-4" />
@@ -377,7 +378,7 @@ export function Dashboard() {
                     Simulate Backend Crash
                   </label>
                 </div>
-                <div className="flex gap-3">
+                <div className="flex flex-col sm:flex-row gap-3">
                   <input
                     type="number"
                     value={swapAmount}
@@ -394,18 +395,20 @@ export function Dashboard() {
                     className={cn(
                       'flex-1 rounded-lg border border-gray-700 bg-gray-800 px-4 py-2',
                       'text-sm text-gray-300 placeholder-gray-500',
-                      'focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent'
+                      'focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent',
+                      'w-full min-w-0'
                     )}
                   />
                   <button
                     onClick={handleRequestQuote}
                     disabled={isRequestingQuote || !swapAmount || hasInsufficientFunds}
                     className={cn(
-                      'flex items-center gap-2 rounded-lg border border-gray-700 bg-gray-800 px-4 py-2',
+                      'flex items-center justify-center gap-2 rounded-lg border border-gray-700 bg-gray-800 px-4 py-2',
                       'text-sm font-medium text-gray-400 transition-colors',
                       'hover:bg-gray-700 hover:text-gray-300',
                       'focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-gray-900',
-                      'disabled:cursor-not-allowed disabled:opacity-50'
+                      'disabled:cursor-not-allowed disabled:opacity-50',
+                      'w-full sm:w-auto flex-shrink-0'
                     )}
                   >
                     <ArrowRightLeft className="h-4 w-4" />
@@ -494,9 +497,9 @@ export function Dashboard() {
                 )}
                 {lockAddress && quote && (
                   <div className="space-y-4">
-                    <div className="rounded-lg border border-gray-700 bg-gray-800/50 p-4">
+                    <div className="rounded-lg border border-gray-700 bg-gray-800/50 p-4 overflow-hidden">
                       <p className="text-xs font-medium text-gray-400 mb-2">Lock Address:</p>
-                      <p className="text-sm font-mono text-green-400 break-all">{lockAddress}</p>
+                      <p className="text-sm font-mono text-green-400 break-all overflow-wrap-anywhere">{lockAddress}</p>
                     </div>
                     <div className="space-y-2">
                       <label className="text-xs font-medium text-gray-400">
@@ -627,9 +630,9 @@ export function Dashboard() {
                   <p className="text-sm text-gray-300 text-center mb-4">
                     Bitcoin sent to your L1 Address
                   </p>
-                  <div className="w-full rounded-lg border border-gray-700 bg-gray-800/50 p-4">
+                  <div className="w-full rounded-lg border border-gray-700 bg-gray-800/50 p-4 overflow-hidden">
                     <p className="text-xs font-medium text-gray-400 mb-2">L1 Transaction ID:</p>
-                    <p className="text-sm font-mono text-green-400 break-all">{l1TxId}</p>
+                    <p className="text-sm font-mono text-green-400 break-all overflow-wrap-anywhere">{l1TxId}</p>
                   </div>
                 </div>
                 <button

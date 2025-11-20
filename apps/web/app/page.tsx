@@ -7,7 +7,7 @@ import { Dashboard } from '../components/Dashboard';
 export default function Home() {
   return (
     <WalletProvider>
-      <div className="min-h-screen bg-gray-950">
+      <div className="min-h-screen bg-gray-950 overflow-x-hidden">
         <Navbar />
         <Dashboard />
       </div>
