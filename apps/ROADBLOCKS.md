@@ -130,3 +130,27 @@ Building the custom ASP container failed repeatedly with `exit code: 1` during t
 1.  **Sync Lockfile:** We ran `pnpm install` locally to update `pnpm-lock.yaml` before building.
 2.  **Correct Syntax:** We updated the build command to `pnpm turbo build --filter=@arkswap/asp...`.
     *   The `...` suffix tells TurboRepo: *"Build this package AND all its dependencies (like @arkswap/protocol)."* This handles the dependency graph automatically without needing to list every package manually.
+
+## 9. Taproot Signatures (The "Identity Crisis")
+
+### The Problem
+The ASP rejected signatures with `Invalid Schnorr signature`.
+*   **Hash Mismatch:** JSON serialization of transaction data was non-deterministic between Client and Server.
+*   **Pubkey Mismatch:** The Client signed with the *Internal Key*, but the Server verified against the *Tweaked (Output) Key*.
+
+### The Solution
+1.  **BIP-86 Tweaking:** We updated the Client (`ark-client.ts`) to explicitly calculate the TapTweak and adjust the Private Key before signing.
+2.  **Deterministic Hashing:** We replaced `JSON.stringify` with a deterministic string concatenation method in the protocol library.
+3.  **Proper Address Decoding:** We updated the Server (`transfer.service.ts`) to use `bitcoin.address.toOutputScript` to correctly extract the 32-byte Public Key from the Bech32 address words.
+
+
+## 10. Network Configuration (The "Prefix" Bug)
+
+### The Problem
+The Backend crashed with `Error: ... has an invalid prefix` when decoding VTXO addresses.
+
+### The Root Cause
+`bitcoinjs-lib` defaults to Mainnet (`bc1p...`). It rejected our Regtest (`bcrt1p...`) addresses as invalid.
+
+### The Solution
+We explicitly passed `bitcoin.networks.regtest` to all address encoding/decoding functions in both the Client and the ASP.
