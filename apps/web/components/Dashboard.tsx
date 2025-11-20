@@ -134,17 +134,8 @@ export function Dashboard() {
     setSwapStep('locking');
 
     try {
-      // 1. Mark selected VTXOs as spent
-      if (selectedVtxos.length > 0) {
-        mockArkClient.markVtxosSpent(address, selectedVtxos);
-      } else {
-        // Fallback: if no coins selected, use auto-select
-        const selected = mockArkClient.selectCoins(address, amount);
-        const txids = selected.map(v => v.txid);
-        mockArkClient.markVtxosSpent(address, txids);
-      }
-
-      // 2. Send L2 transaction (lock funds) - this is just a stub that returns a fake txid
+      // 1. Send L2 transaction (lock funds to HTLC address)
+      // The send method handles coin selection, signing, broadcasting, and marking inputs as spent
       const l2TxId = await mockArkClient.send(amount, lockAddress);
 
       // 3. Refresh balance and VTXOs
