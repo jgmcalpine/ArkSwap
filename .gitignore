@@ -55,3 +55,7 @@ docker/data/
 **/data/postgres/
 **/data/redis/
 
+**/playwright-report/
+**/test-results/
+**/blob-report/
+
