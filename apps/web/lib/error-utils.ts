@@ -3,57 +3,42 @@
  * Handles NestJS error formats, JSON strings, and Error objects.
  */
 export function getErrorMessage(error: unknown): string {
-  // If error is a string, try to parse it as JSON first
+  // 1. Handle Strings
   if (typeof error === 'string') {
     try {
+      // Try parsing stringified JSON errors
       const parsed = JSON.parse(error);
-      return getErrorMessage(parsed);
+      if (typeof parsed === 'object' && parsed !== null) {
+        return getErrorMessage(parsed); // Recurse
+      }
     } catch {
-      // Not valid JSON, return the string as-is
       return error;
     }
   }
 
-  // If error is an Error object, check its message
-  if (error instanceof Error) {
-    const message = error.message;
+  // 2. Handle Standard Errors
+  if (error instanceof Error) return error.message;
+
+  // 3. Handle Plain Objects (like API JSON responses)
+  if (typeof error === 'object' && error !== null) {
+    const errObj = error as Record<string, any>;
+
+    // Check for NestJS "message" array (ValidationPipe)
+    if (Array.isArray(errObj.message)) {
+      return errObj.message.join(', ');
+    }
+
+    // Check for standard "message" property
+    if (typeof errObj.message === 'string') {
+      return errObj.message;
+    }
     
-    // Try to parse the message as JSON (in case API client stringified the response)
-    try {
-      const parsed = JSON.parse(message);
-      return getErrorMessage(parsed);
-    } catch {
-      // Not valid JSON, use the message directly
-      return message || 'An unexpected error occurred.';
+    // Check for "error" property (e.g. "Bad Request")
+    if (typeof errObj.error === 'string') {
+      return errObj.error;
     }
   }
 
-  // If error is an object, check for NestJS error format
-  if (error && typeof error === 'object') {
-    const errorObj = error as Record<string, unknown>;
-    
-    // NestJS error format: check for .message property
-    if ('message' in errorObj) {
-      const message = errorObj.message;
-      
-      // If message is an array (class-validator format), join them
-      if (Array.isArray(message)) {
-        return message.join(', ');
-      }
-      
-      // If message is a string, use it
-      if (typeof message === 'string') {
-        return message;
-      }
-    }
-    
-    // Check for other common error properties
-    if ('error' in errorObj && typeof errorObj.error === 'string') {
-      return errorObj.error;
-    }
-  }
-
-  // Fallback
-  return 'An unexpected error occurred.';
+  return "An unexpected error occurred";
 }
 

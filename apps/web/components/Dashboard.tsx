@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { useWallet } from '../context/WalletContext';
 import { Coins, Droplets, ArrowRightLeft, Loader2, CheckCircle2 } from 'lucide-react';
 import { cn } from '../lib/utils';
@@ -31,13 +32,20 @@ export function Dashboard() {
   const [currentBlock, setCurrentBlock] = useState<number | null>(null);
   const [timeoutBlock, setTimeoutBlock] = useState<number | null>(null);
   const [isClaimingRefund, setIsClaimingRefund] = useState(false);
-  const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const [selectedVtxos, setSelectedVtxos] = useState<string[]>([]);
   const [isManualSelection, setIsManualSelection] = useState(false);
   const [liftStatus, setLiftStatus] = useState<string | null>(null);
   const previousBalanceRef = useRef<number>(balance);
   const l1AddressInputRef = useRef<HTMLInputElement | null>(null);
   const [loadingText, setLoadingText] = useState<string | null>(null);
+
+  // React Query for bitcoin info (used in pendingRefund step)
+  const { data: bitcoinInfo } = useQuery({
+    queryKey: ['bitcoin-info'],
+    queryFn: getBitcoinInfo,
+    refetchInterval: swapStep === 'pendingRefund' ? 5000 : false,
+    enabled: swapStep === 'pendingRefund',
+  });
 
   // Clear lift status when balance updates (indicating round finalized)
   useEffect(() => {
@@ -160,9 +168,10 @@ export function Dashboard() {
       const maxAttempts = 10;
       
       // Poll until balance > 0 (change VTXO has arrived) or timeout
+      // Use refreshBalance() which now triggers React Query invalidation
       while (attempts < maxAttempts) {
         await new Promise(resolve => setTimeout(resolve, 1000)); // Wait 1 second
-        await refreshBalance(); // Force fetch from ASP
+        await refreshBalance(); // This invalidates React Query and triggers a fetch
         
         // Check if balance has recovered (user gets change back)
         // Read directly from client after refreshBalance updates localStorage
@@ -180,8 +189,8 @@ export function Dashboard() {
         // Simulate backend crash - don't call commitSwap
         // Get current block to calculate timeout (targetBlock = Current + Timeout)
         try {
-          const bitcoinInfo = await getBitcoinInfo();
-          const current = bitcoinInfo.blocks;
+          const bitcoinInfoData = await getBitcoinInfo();
+          const current = bitcoinInfoData.blocks;
           const timeoutBlocks = 20; // From createSwapLock
           const targetBlock = current + timeoutBlocks;
           
@@ -240,10 +249,6 @@ export function Dashboard() {
     setSelectedVtxos([]);
     setIsManualSelection(false);
     setLoadingText(null);
-    if (pollingIntervalRef.current) {
-      clearInterval(pollingIntervalRef.current);
-      pollingIntervalRef.current = null;
-    }
   };
 
   // Auto-select coins when amount changes (if not manual selection)
@@ -296,12 +301,6 @@ export function Dashboard() {
       // Claim refund using lift mechanism (ensures ASP knows about the VTXO)
       await mockArkClient.claimRefund(amount, address);
       
-      // Stop block polling
-      if (pollingIntervalRef.current) {
-        clearInterval(pollingIntervalRef.current);
-        pollingIntervalRef.current = null;
-      }
-      
       // Wait for Round Finalization - poll until balance updates
       setLoadingText('Waiting for Round Finalization...');
       
@@ -311,9 +310,10 @@ export function Dashboard() {
       const maxAttempts = 10;
       
       // Poll until balance increases (refund VTXO has arrived) or timeout
+      // Use refreshBalance() which now triggers React Query invalidation
       while (attempts < maxAttempts) {
         await new Promise(resolve => setTimeout(resolve, 1000)); // Wait 1 second
-        await refreshBalance(); // Force fetch from ASP
+        await refreshBalance(); // This invalidates React Query and triggers a fetch
         
         // Check if balance has increased (refund funds have arrived)
         const currentBalance = address ? mockArkClient.getBalance(address) : 0;
@@ -336,36 +336,12 @@ export function Dashboard() {
     }
   };
 
-  // Poll for current block when in pending refund state
+  // Update current block from React Query data when in pending refund state
   useEffect(() => {
-    if (swapStep === 'pendingRefund') {
-      const pollBlock = async () => {
-        try {
-          const bitcoinInfo = await getBitcoinInfo();
-          setCurrentBlock(bitcoinInfo.blocks);
-        } catch (err) {
-          console.error("Failed to poll bitcoin info", err);
-        }
-      };
-
-      // Poll immediately and then every 5 seconds
-      pollBlock();
-      pollingIntervalRef.current = setInterval(pollBlock, 5000);
-
-      return () => {
-        if (pollingIntervalRef.current) {
-          clearInterval(pollingIntervalRef.current);
-          pollingIntervalRef.current = null;
-        }
-      };
-    } else {
-      // Clear polling when not in pendingRefund state
-      if (pollingIntervalRef.current) {
-        clearInterval(pollingIntervalRef.current);
-        pollingIntervalRef.current = null;
-      }
+    if (swapStep === 'pendingRefund' && bitcoinInfo) {
+      setCurrentBlock(bitcoinInfo.blocks);
     }
-  }, [swapStep]);
+  }, [swapStep, bitcoinInfo]);
 
   if (!isConnected) {
     return (

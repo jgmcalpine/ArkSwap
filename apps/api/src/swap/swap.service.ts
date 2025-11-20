@@ -74,7 +74,7 @@ export class SwapService {
 
     return {
       id,
-      amount: "5000" as any,
+      amount,
       preimageHash,
       makerPubkey,
     };

@@ -1,6 +1,7 @@
 'use client';
 
 import { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { mockArkClient } from '../lib/ark-client';
 import type { Vtxo } from '@arkswap/protocol';
 
@@ -19,16 +20,15 @@ const WalletContext = createContext<WalletContextType | undefined>(undefined);
 
 export function WalletProvider({ children }: { children: ReactNode }) {
   const [address, setAddress] = useState<string | null>(null);
-  const [balance, setBalance] = useState<number>(0);
-  const [vtxos, setVtxos] = useState<Vtxo[]>([]);
   const [isConnected, setIsConnected] = useState<boolean>(false);
-  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [isInitialLoading, setIsInitialLoading] = useState<boolean>(true);
+  const queryClient = useQueryClient();
 
   // Load address from wallet on mount (client-side only)
   useEffect(() => {
     // Ensure we're in the browser
     if (typeof window === 'undefined') {
-      setIsLoading(false);
+      setIsInitialLoading(false);
       return;
     }
 
@@ -41,39 +41,52 @@ export function WalletProvider({ children }: { children: ReactNode }) {
         if (storedAddress) {
           setAddress(storedAddress);
           setIsConnected(true);
-          setBalance(mockArkClient.getBalance(storedAddress));
-          setVtxos(mockArkClient.getVtxos(storedAddress));
         } else {
           // No wallet found - stay disconnected
           setIsConnected(false);
           setAddress(null);
-          setBalance(0);
-          setVtxos([]);
         }
       } catch (e) {
         console.error("Wallet load error", e);
         setIsConnected(false);
       } finally {
-        setIsLoading(false);
+        setIsInitialLoading(false);
       }
     };
 
     loadWallet();
   }, []);
 
+  // React Query for wallet data
+  const { data, isLoading } = useQuery({
+    queryKey: ['wallet-data', address],
+    enabled: !!address,
+    queryFn: async () => {
+      if (!address) {
+        return { balance: 0, vtxos: [] };
+      }
+      await mockArkClient.fetchFromASP(address);
+      return {
+        balance: mockArkClient.getBalance(address),
+        vtxos: mockArkClient.getVtxos(address),
+      };
+    },
+    refetchInterval: 5000,
+  });
+
+  const balance = data?.balance ?? 0;
+  const vtxos = data?.vtxos ?? [];
+  const isLoadingWallet = isLoading || isInitialLoading;
+
   const connect = useCallback(async () => {
     try {
       const newAddress = await mockArkClient.createWallet();
       setAddress(newAddress);
       setIsConnected(true);
-      setBalance(mockArkClient.getBalance(newAddress));
-      setVtxos(mockArkClient.getVtxos(newAddress));
     } catch (error) {
       console.error('Failed to create wallet:', error);
       setIsConnected(false);
       setAddress(null);
-      setBalance(0);
-      setVtxos([]);
     }
   }, []);
 
@@ -83,31 +96,13 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     // Clear React state
     setAddress(null);
     setIsConnected(false);
-    setBalance(0);
-    setVtxos([]);
-  }, []);
+    // Invalidate queries to clear cached data
+    queryClient.invalidateQueries({ queryKey: ['wallet-data'] });
+  }, [queryClient]);
 
   const refreshBalance = useCallback(async () => {
-    if (address) {
-      // First, fetch from ASP to merge any new VTXOs
-      await mockArkClient.fetchFromASP(address);
-      // Then update balance and VTXOs
-      setBalance(mockArkClient.getBalance(address));
-      setVtxos(mockArkClient.getVtxos(address));
-    }
-  }, [address]);
-
-  // Poll ASP every 5 seconds
-  useEffect(() => {
-    if (!address) return;
-
-    const pollInterval = setInterval(async () => {
-      await mockArkClient.fetchFromASP(address);
-      await refreshBalance();
-    }, 5000);
-
-    return () => clearInterval(pollInterval);
-  }, [address, refreshBalance]);
+    queryClient.invalidateQueries({ queryKey: ['wallet-data'] });
+  }, [queryClient]);
 
   return (
     <WalletContext.Provider
@@ -116,7 +111,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
         balance,
         vtxos,
         isConnected,
-        isLoading,
+        isLoading: isLoadingWallet,
         connect,
         disconnect,
         refreshBalance,
