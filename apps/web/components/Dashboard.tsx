@@ -7,6 +7,7 @@ import { cn } from '../lib/utils';
 import { requestFaucet, requestSwapQuote, commitSwap, getBitcoinInfo, type SwapQuoteResponse } from '../lib/api';
 import { mockArkClient } from '../lib/ark-client';
 import { createSwapLock, type SwapLockResult, type Vtxo, SwapQuoteSchema } from '@arkswap/protocol';
+import { getErrorMessage } from '../lib/error-utils';
 
 type SwapStep = 'quote' | 'locking' | 'success' | 'pendingRefund' | 'refundSuccess';
 
@@ -64,7 +65,7 @@ export function Dashboard() {
       
     } catch (error) {
       console.error("Lift failed", error);
-      setFaucetError('Failed to initiate deposit');
+      setFaucetError(getErrorMessage(error));
     } finally {
       setIsLoading(false);
     }
@@ -120,7 +121,7 @@ export function Dashboard() {
       }, 100);
     } catch (err) {
       console.error("Quote request failed", err);
-      setQuoteError(err instanceof Error ? err.message : 'Failed to request quote');
+      setQuoteError(getErrorMessage(err));
     } finally {
       setIsRequestingQuote(false);
     }
@@ -215,7 +216,7 @@ export function Dashboard() {
       }
     } catch (err) {
       console.error("Swap commit failed", err);
-      setCommitError(err instanceof Error ? err.message : 'Failed to commit swap');
+      setCommitError(getErrorMessage(err));
       setLoadingText(null);
       setSwapStep('quote');
     } finally {
@@ -328,7 +329,7 @@ export function Dashboard() {
       setSwapStep('refundSuccess');
     } catch (err) {
       console.error("Refund claim failed", err);
-      setCommitError(err instanceof Error ? err.message : 'Failed to claim refund');
+      setCommitError(getErrorMessage(err));
       setLoadingText(null);
     } finally {
       setIsClaimingRefund(false);
