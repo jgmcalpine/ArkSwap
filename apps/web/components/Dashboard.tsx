@@ -6,12 +6,12 @@ import { Coins, Droplets, ArrowRightLeft, Loader2, CheckCircle2 } from 'lucide-r
 import { cn } from '../lib/utils';
 import { requestFaucet, requestSwapQuote, commitSwap, getBitcoinInfo, type SwapQuoteResponse } from '../lib/api';
 import { mockArkClient } from '../lib/ark-client';
-import { createSwapLock, type SwapLockResult } from '@arkswap/protocol';
+import { createSwapLock, type SwapLockResult, type Vtxo } from '@arkswap/protocol';
 
 type SwapStep = 'quote' | 'locking' | 'success' | 'pendingRefund' | 'refundSuccess';
 
 export function Dashboard() {
-  const { balance, isConnected, address, refreshBalance } = useWallet();
+  const { balance, isConnected, address, refreshBalance, vtxos } = useWallet();
   const [isLoading, setIsLoading] = useState(false);
   const [faucetError, setFaucetError] = useState<string | null>(null);
   const [swapAmount, setSwapAmount] = useState<string>('');
@@ -31,6 +31,8 @@ export function Dashboard() {
   const [timeoutBlock, setTimeoutBlock] = useState<number | null>(null);
   const [isClaimingRefund, setIsClaimingRefund] = useState(false);
   const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const [selectedVtxos, setSelectedVtxos] = useState<string[]>([]);
+  const [isManualSelection, setIsManualSelection] = useState(false);
 
   const handleFaucet = async () => {
     if (!address) return;
@@ -126,11 +128,20 @@ export function Dashboard() {
     setSwapStep('locking');
 
     try {
-      // 1. Send L2 transaction (lock funds)
+      // 1. Mark selected VTXOs as spent
+      if (selectedVtxos.length > 0) {
+        mockArkClient.markVtxosSpent(address, selectedVtxos);
+      } else {
+        // Fallback: if no coins selected, use auto-select
+        const selected = mockArkClient.selectCoins(address, amount);
+        const txids = selected.map(v => v.txid);
+        mockArkClient.markVtxosSpent(address, txids);
+      }
+
+      // 2. Send L2 transaction (lock funds) - this is just a stub that returns a fake txid
       const l2TxId = await mockArkClient.send(amount, lockAddress);
 
-      // 2. Update balance (deduct the locked amount)
-      mockArkClient.addBalance(address, -amount);
+      // 3. Refresh balance and VTXOs
       await refreshBalance();
 
       // 3. Check Chaos Mode
@@ -183,10 +194,46 @@ export function Dashboard() {
     setStartBlock(null);
     setCurrentBlock(null);
     setTimeoutBlock(null);
+    setSelectedVtxos([]);
+    setIsManualSelection(false);
     if (pollingIntervalRef.current) {
       clearInterval(pollingIntervalRef.current);
       pollingIntervalRef.current = null;
     }
+  };
+
+  // Auto-select coins when amount changes (if not manual selection)
+  useEffect(() => {
+    if (!address || isManualSelection || !swapAmount) {
+      return;
+    }
+
+    const amount = parseFloat(swapAmount);
+    if (isNaN(amount) || amount <= 0) {
+      setSelectedVtxos([]);
+      return;
+    }
+
+    const selected = mockArkClient.selectCoins(address, amount);
+    setSelectedVtxos(selected.map(v => v.txid));
+  }, [swapAmount, address, isManualSelection]);
+
+  // Calculate selected total
+  const selectedTotal = vtxos
+    .filter(v => selectedVtxos.includes(v.txid))
+    .reduce((sum, v) => sum + v.amount, 0);
+
+  const requiredAmount = parseFloat(swapAmount) || 0;
+  const hasInsufficientFunds = requiredAmount > 0 && selectedTotal < requiredAmount;
+
+  // Toggle VTXO selection
+  const toggleVtxo = (txid: string) => {
+    setIsManualSelection(true);
+    setSelectedVtxos(prev => 
+      prev.includes(txid)
+        ? prev.filter(id => id !== txid)
+        : [...prev, txid]
+    );
   };
 
   const handleClaimRefund = async () => {
@@ -334,7 +381,13 @@ export function Dashboard() {
                   <input
                     type="number"
                     value={swapAmount}
-                    onChange={(e) => setSwapAmount(e.target.value)}
+                    onChange={(e) => {
+                      setSwapAmount(e.target.value);
+                      // Reset manual selection when amount changes
+                      if (isManualSelection) {
+                        setIsManualSelection(false);
+                      }
+                    }}
                     placeholder="Amount to swap"
                     min="0"
                     step="0.01"
@@ -346,7 +399,7 @@ export function Dashboard() {
                   />
                   <button
                     onClick={handleRequestQuote}
-                    disabled={isRequestingQuote || !swapAmount}
+                    disabled={isRequestingQuote || !swapAmount || hasInsufficientFunds}
                     className={cn(
                       'flex items-center gap-2 rounded-lg border border-gray-700 bg-gray-800 px-4 py-2',
                       'text-sm font-medium text-gray-400 transition-colors',
@@ -359,8 +412,85 @@ export function Dashboard() {
                     {isRequestingQuote ? 'Requesting...' : 'Request Quote'}
                   </button>
                 </div>
+                {hasInsufficientFunds && (
+                  <p className="text-sm text-yellow-400">
+                    Insufficient funds selected: {selectedTotal.toLocaleString()} / {requiredAmount.toLocaleString()} sats
+                  </p>
+                )}
                 {quoteError && (
                   <p className="text-sm text-red-400">{quoteError}</p>
+                )}
+                
+                {/* Coin Control UI */}
+                {vtxos.length > 0 && (
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <h4 className="text-sm font-medium text-gray-400">Available Coins</h4>
+                      {isManualSelection && (
+                        <button
+                          onClick={() => {
+                            setIsManualSelection(false);
+                            const amount = parseFloat(swapAmount);
+                            if (!isNaN(amount) && amount > 0 && address) {
+                              const selected = mockArkClient.selectCoins(address, amount);
+                              setSelectedVtxos(selected.map(v => v.txid));
+                            }
+                          }}
+                          className="text-xs text-blue-400 hover:text-blue-300"
+                        >
+                          Reset to Auto-Select
+                        </button>
+                      )}
+                    </div>
+                    <div className="space-y-2 max-h-64 overflow-y-auto">
+                      {vtxos.map((vtxo) => {
+                        const isSelected = selectedVtxos.includes(vtxo.txid);
+                        return (
+                          <button
+                            key={vtxo.txid}
+                            type="button"
+                            onClick={() => toggleVtxo(vtxo.txid)}
+                            className={cn(
+                              'w-full flex items-center justify-between rounded-lg border p-3 text-left',
+                              'transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500',
+                              isSelected
+                                ? 'border-green-500 bg-green-500/10'
+                                : 'border-gray-700 bg-gray-800/50 hover:bg-gray-800'
+                            )}
+                          >
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2">
+                                <span className="text-sm font-medium text-gray-300">
+                                  {vtxo.amount.toLocaleString()} sats
+                                </span>
+                                {isSelected && (
+                                  <CheckCircle2 className="h-4 w-4 text-green-400 flex-shrink-0" />
+                                )}
+                              </div>
+                              <p className="text-xs font-mono text-gray-500 truncate mt-1">
+                                {vtxo.txid.slice(0, 16)}...{vtxo.txid.slice(-8)}
+                              </p>
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                    {selectedVtxos.length > 0 && (
+                      <div className="rounded-lg border border-gray-700 bg-gray-800/50 p-3">
+                        <p className="text-xs text-gray-400">
+                          Selected: <span className="font-medium text-gray-300">{selectedTotal.toLocaleString()}</span> sats
+                          {requiredAmount > 0 && (
+                            <span className={cn(
+                              'ml-2',
+                              hasInsufficientFunds ? 'text-yellow-400' : 'text-green-400'
+                            )}>
+                              ({selectedTotal >= requiredAmount ? '✓' : '✗'} {requiredAmount.toLocaleString()} required)
+                            </span>
+                          )}
+                        </p>
+                      </div>
+                    )}
+                  </div>
                 )}
                 {lockAddress && quote && (
                   <div className="space-y-4">
@@ -386,7 +516,7 @@ export function Dashboard() {
                     </div>
                     <button
                       onClick={handleConfirmSwap}
-                      disabled={isCommitting || !userL1Address.trim()}
+                      disabled={isCommitting || !userL1Address.trim() || hasInsufficientFunds}
                       className={cn(
                         'w-full flex items-center justify-center gap-2 rounded-lg border border-gray-700 bg-blue-600 px-4 py-2',
                         'text-sm font-medium text-white transition-colors',

@@ -41,7 +41,7 @@ Follow these steps to run the entire ArkSwap ecosystem locally.
 ### 1. Installation
 Clone the repo and install dependencies.
 ```bash
-git clone https://github.com/your-org/arkswap.git
+git clone https://github.com/jgmcalpine/arkswap.git
 cd arkswap
 pnpm install
 ```
@@ -94,7 +94,7 @@ We are building ArkSwap in distinct "Chunks" to ensure security and architectura
 - [x] **Phase 8: Execution** (Happy Path: Locking funds & Claiming L1 Bitcoin)
 - [x] **Phase 9: The Safety Net** (Unhappy Path: Unilateral Exit/Refund flow)
 - [x] **Phase 10: Infrastructure - The Real ASP** (Build minimal Ark Service Provider)
-- [ ] **Phase 11: VTXO State Management** (Implement real Ark Wallet SDK)
+- [x] **Phase 11: VTXO State Management** (Implement real Ark Wallet SDK)
 - [ ] **Phase 12: The "Lift" - Onboarding** (Lift bitcoin onto the Ark)
 - [ ] **Phase 13: The "Off-Chain" HTLC Funding** (Final Boss)
 - [ ] **Phase 14: The Double Unilateral Exit** (Implement the Ark exit)

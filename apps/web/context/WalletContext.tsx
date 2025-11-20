@@ -2,10 +2,12 @@
 
 import { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
 import { mockArkClient } from '../lib/ark-client';
+import type { Vtxo } from '@arkswap/protocol';
 
 interface WalletContextType {
   address: string | null;
   balance: number;
+  vtxos: Vtxo[];
   isConnected: boolean;
   isLoading: boolean;
   connect: () => Promise<void>;
@@ -18,6 +20,7 @@ const WalletContext = createContext<WalletContextType | undefined>(undefined);
 export function WalletProvider({ children }: { children: ReactNode }) {
   const [address, setAddress] = useState<string | null>(null);
   const [balance, setBalance] = useState<number>(0);
+  const [vtxos, setVtxos] = useState<Vtxo[]>([]);
   const [isConnected, setIsConnected] = useState<boolean>(false);
   const [isLoading, setIsLoading] = useState<boolean>(true);
 
@@ -39,11 +42,13 @@ export function WalletProvider({ children }: { children: ReactNode }) {
           setAddress(storedAddress);
           setIsConnected(true);
           setBalance(mockArkClient.getBalance(storedAddress));
+          setVtxos(mockArkClient.getVtxos(storedAddress));
         } else {
           // No wallet found - stay disconnected
           setIsConnected(false);
           setAddress(null);
           setBalance(0);
+          setVtxos([]);
         }
       } catch (e) {
         console.error("Wallet load error", e);
@@ -62,11 +67,13 @@ export function WalletProvider({ children }: { children: ReactNode }) {
       setAddress(newAddress);
       setIsConnected(true);
       setBalance(mockArkClient.getBalance(newAddress));
+      setVtxos(mockArkClient.getVtxos(newAddress));
     } catch (error) {
       console.error('Failed to create wallet:', error);
       setIsConnected(false);
       setAddress(null);
       setBalance(0);
+      setVtxos([]);
     }
   }, []);
 
@@ -74,6 +81,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     setAddress(null);
     setIsConnected(false);
     setBalance(0);
+    setVtxos([]);
     // Note: WIF is stored in MockArkClient, not here
     // For a full disconnect, we'd need to clear it from MockArkClient
   }, []);
@@ -82,6 +90,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     if (address) {
       // Balance is synchronous, but we keep it async for consistency
       setBalance(mockArkClient.getBalance(address));
+      setVtxos(mockArkClient.getVtxos(address));
     }
   }, [address]);
 
@@ -90,6 +99,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
       value={{
         address,
         balance,
+        vtxos,
         isConnected,
         isLoading,
         connect,
