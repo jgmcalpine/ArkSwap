@@ -158,10 +158,41 @@ If you are interested in tackling one of these, please open an Issue to discuss 
 
 ## 🤝 Contributing
 
-We welcome contributions! Please note that this project deals with financial cryptography.
-1.  **Strict Types:** We use TypeScript strict mode. No `any`.
+We welcome contributions! Please note that this project deals with financial cryptography, so we enforce strict quality controls.
+
+### Development Workflow
+
+1.  **Strict Types:** We use TypeScript strict mode. No `any` casts are allowed.
 2.  **Shared Logic:** All cryptographic logic belongs in `packages/protocol`, not in the apps.
-3.  **Testing:** Any changes to `packages/protocol` must pass `pnpm test` with 100% coverage.
+
+### Verification (Running Tests)
+
+Before pushing code, please run the following suites to ensure CI will pass.
+
+**1. Code Quality (Fast)**
+Runs linter, strict type checking, and protocol unit tests.
+```bash
+pnpm turbo lint
+pnpm turbo type-check
+pnpm --filter @arkswap/protocol test
+```
+
+**1. End-to-End Assurance (Slow)**
+Runs the Playwright suite against the local Docker environment.
+```bash
+# Ensure Docker is running first
+cd docker && docker-compose up -d
+
+# Run E2E Tests
+cd ..
+pnpm --filter @arkswap/web test:e2e
+```
+
+## Project Structure
+* **apps/web:** Next.js Frontend (Client)
+* **apps/api:** NestJS Market Maker (Liquidity Provider)
+* **apps/asp:** NestJS Ark Service Provider (Protocol Coordinator)
+* **packages/protocol:** Shared Cryptography & Types
 
 ## 📄 License
 
