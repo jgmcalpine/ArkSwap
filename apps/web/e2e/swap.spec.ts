@@ -4,14 +4,14 @@ test.describe('Swap Happy Path', () => {
   test.beforeAll(async () => {
     // Initialize the Market Maker wallet before tests run
     // Retry logic to wait for API server to be ready
-    const maxRetries = 5;
+    const maxRetries = 10;
     const retryDelay = 1000; // 1 second
     let lastError: Error | null = null;
 
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
       try {
         const apiRequest = await request.newContext();
-        const response = await apiRequest.post('http://localhost:3001/faucet/maker');
+        const response = await apiRequest.post('http://127.0.0.1:3001/faucet/maker');
         
         if (response.ok()) {
           console.log('Market Maker wallet funded successfully');
