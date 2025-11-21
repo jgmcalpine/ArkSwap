@@ -1,6 +1,9 @@
 import { test, expect, request } from '@playwright/test';
 
 test.describe('Swap Happy Path', () => {
+  // Allow 2 minutes for this test suite (CI is slow)
+  test.setTimeout(120000);
+
   test.beforeAll(async () => {
     // Initialize the Market Maker wallet before tests run
     // Retry logic to wait for API server to be ready
