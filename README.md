@@ -127,6 +127,10 @@ If you are interested in tackling one of these, please open an Issue to discuss 
 *   **The Task:** Upgrade the ASP's `TransferService` to enforce graph topology.
 *   **The Goal:** Ensure input VTXOs technically correspond to valid Connector outputs from previous rounds, preventing the ASP from equivocating or double-spending the liquidity pool.
 
+### 6. External Wallet Integration (BIP-329 / WebLN Standard)
+*   **The Task:** Decouple the "Wallet" from the "DApp."
+*   **The Goal:** Instead of managing VTXOs and keys internally, ArkSwap should connect to an external Ark Wallet (like **Arkade**) via a standard provider interface (e.g., `window.ark` or similar). This allows users to bring their own identity and liquidity to the application, rather than creating a new ephemeral wallet for every session.
+
 ## 🤝 Contributing
 
 We welcome contributions! Please note that this project deals with financial cryptography.
