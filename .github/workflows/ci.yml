@@ -40,7 +40,7 @@ jobs:
         run: pnpm --filter @arkswap/protocol test
 
   # JOB 2: End-to-End Assurance (Slow & heavy)
-  # This spins up Docker and runs Playwright
+  # This spins up Docker and runs Playwright against the real stack
   e2e:
     name: 🤖 End-to-End Tests
     runs-on: ubuntu-latest
@@ -59,6 +59,7 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: 🏗️ Build Shared Protocol
+        # We must build the shared library so the Next.js app can resolve it
         run: pnpm --filter @arkswap/protocol build
 
       - name: 🎭 Install Playwright Browsers
@@ -68,20 +69,42 @@ jobs:
         run: |
           cd docker
           docker compose up -d --build
-          # Wait for Bitcoin & ASP to be ready
-          echo "Waiting for services to initialize..."
-          sleep 15 
+          echo "Waiting for Bitcoin & ASP to initialize..."
+          # Use npx wait-on to block until ports are listening
+          # 7070 = ASP, 18443 = Bitcoin RPC
+          npx wait-on tcp:127.0.0.1:7070 tcp:127.0.0.1:18443 --timeout 60000
 
       - name: ⛏️ Initialize Blockchain (God Mode)
-        # We need to mine blocks to fund the maker wallet before tests start
+        # Now that Docker is ready, we mine blocks to mature coins
         run: |
           chmod +x scripts/*.sh
           ./scripts/mine.sh 101
+          # Sanity check the ASP info endpoint
+          curl -v http://127.0.0.1:7070/v1/info
+
+      - name: 🚀 Start App Servers (Background)
+        # Start Next.js (Web) and NestJS (API) in the background
+        # IMPORTANT: Exclude ASP because it is already running in Docker!
+        run: |
+          pnpm dev --filter=!@arkswap/asp &
+          echo "App servers starting in background..."
+
+      - name: ⏳ Wait for Services
+        # Block until the App servers are responding HTTP 200 (or accepting connections)
+        # This moves the "Boot Time" out of the "Test Time"
+        run: |
+          echo "Waiting for Web (3000) and API (3001)..."
+          npx wait-on http://127.0.0.1:3000 http://127.0.0.1:3001 --timeout 120000
+
+      - name: 💰 Fund Market Maker
+        # Now we KNOW the API is up, so we can fund the backend wallet safely
+        run: |
+          curl -X POST http://127.0.0.1:3001/faucet/maker
 
       - name: 🧪 Run Playwright E2E
+        # The environment is fully prepped. Run the test.
         run: pnpm --filter @arkswap/web test:e2e
         env:
-          # Ensure CI environment variable is set
           CI: true
 
       - name: 📤 Upload Playwright Report

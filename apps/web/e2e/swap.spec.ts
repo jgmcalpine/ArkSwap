@@ -1,36 +1,11 @@
 import { test, expect, request } from '@playwright/test';
 
-test.setTimeout(120000);
-
 test.describe('Swap Happy Path', () => {
-  test.beforeAll(async () => {
-    // Initialize the Market Maker wallet before tests run
-    // Retry logic to wait for API server to be ready
-    const maxRetries = 30;
-    const retryDelay = 2000; // 2 seconds
-    let lastError: Error | null = null;
-
-    for (let attempt = 1; attempt <= maxRetries; attempt++) {
-      console.log(`[Setup] Attempt ${attempt}/${maxRetries} to connect to API...`);
-      try {
-        const apiRequest = await request.newContext();
-        const response = await apiRequest.post('http://127.0.0.1:3001/faucet/maker');
-        
-        if (response.ok()) {
-          console.log('Market Maker wallet funded successfully');
-          return;
-        }
-        
-        throw new Error(`Faucet API returned status ${response.status()}`);
-      } catch (error) {
-        lastError = error instanceof Error ? error : new Error(String(error));
-        if (attempt < maxRetries) {
-          await new Promise((resolve) => setTimeout(resolve, retryDelay));
-        }
-      }
-    }
-
-    throw new Error(`Failed to fund Market Maker wallet after ${maxRetries} attempts: ${lastError?.message}`);
+  test.beforeAll(async ({ request }) => {
+    // The CI pipeline guarantees the API is up and the Maker is funded.
+    // We can do a quick sanity check or just proceed.
+    const response = await request.post('http://127.0.0.1:3001/faucet/maker');
+    expect(response.ok()).toBeTruthy();
   });
 
   test('Connect -> Lift -> Swap -> Success', async ({ page }) => {
