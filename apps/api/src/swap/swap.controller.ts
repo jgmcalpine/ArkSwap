@@ -1,4 +1,4 @@
-import { Controller, Post, Body, HttpException, HttpStatus, Logger, BadRequestException } from '@nestjs/common';
+import { Controller, Post, Body, Logger, BadRequestException } from '@nestjs/common';
 import { SwapService } from './swap.service';
 import { z, ZodError } from 'zod';
 
