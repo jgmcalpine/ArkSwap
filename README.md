@@ -120,35 +120,35 @@ Since this runs on Regtest, you control the blockchain. We provide scripts to mi
 curl -X POST http://localhost:3001/faucet/maker
 ```
 
-## 🚀 Roadmap to Mainnet (Call for Contributors)
+## 🔬 Research Roadmap: Achieving Protocol Parity
 
-We have built the "Steel Thread"—a fully functional Swap and Refund flow on Regtest. To elevate ArkSwap from a Reference Architecture to a Production Application, we are seeking contributors for the following critical infrastructure pieces.
+We have built the "Steel Thread"—a functional Swap and Refund flow on Regtest. However, to make this a Complete Reference Implementation that accurately reflects the Ark Protocol specification, we are seeking contributors for the following architectural improvements.
 
-If you are interested in tackling one of these, please open an Issue to discuss the implementation plan.
+These tasks are designed to close the gap between our current simulation and the formal protocol guarantees.
 
-### 1. Persistence Layer (Priority: High)
-*   **The Task:** Wire up the scaffolded **PostgreSQL** database to the NestJS Backend (`apps/api` and `apps/asp`).
-*   **The Goal:** Ensure all VTXO states, active Swaps, and Round data survive a Docker container restart. Currently, this data exists only in memory.
+### 1. Covenant Enforcement (Connectors) [Priority: High]
+*   **The Task:** Upgrade the ASP's ```TransferService``` to enforce graph topology.
+*   **The Goal:** Currently, we only validate signatures. To achieve protocol parity, the ASP must cryptographically enforce that input VTXOs correspond to valid Connector outputs from previous Round Transactions. This prevents the ASP from equivocating or double-spending the liquidity pool.
 
-### 2. Atomic Lifting (Priority: High)
-*   **The Task:** Implement the "Trustless Entry" flow.
-*   **The Goal:** Replace the current API-triggered lift with a true Bitcoin L1 listener. The User should broadcast a pre-signed funding transaction to L1, and the ASP should detect this via a Chain Indexer to automatically mint the VTXO, removing the need to trust the ASP's API.
+### 2. Atomic Lifting (Trustless Onboarding) [Priority: High]
+*   **The Task:** Implement the "Trustless Entry" mechanism.
+*   **The Goal:** Replace the current API-triggered lift with a true Bitcoin L1 listener. The ASP should use a Chain Indexer to detect pre-signed funding transactions on the Regtest blockchain and automatically mint VTXOs. This removes the reliance on the mock ```/lift``` API endpoint.
 
-### 3. Secure Key Management
-*   **The Task:** Integrate a browser extension wallet (e.g., Alby, Unisat) or Hardware Wallet support.
-*   **The Goal:** Remove `localStorage` key management entirely. The web app should request signatures (SIP-style) rather than holding private keys.
+### 3. Persistence Layer & State Recovery [Priority High]
+*   **The Task:** Wire up the scaffolded PostgreSQL database to the NestJS Backend.
+*   **The Goal:** Ensure VTXO states and Round data persist across container restarts. More importantly, implement State Recovery logic where the Client can rebuild its VTXO set by scanning the Regtest blockchain for relevant Round TXIDs, rather than relying on ```localStorage```.
 
-### 4. The "Double" Unilateral Exit
+### 4. The "Double" Unilateral Exit (Ark exit) [Priority Medium]
 *   **The Task:** Implement the protocol-level exit strategy in the Client.
-*   **The Goal:** Allow users to construct and broadcast the L1 "Tree Unfolding" transactions if the ASP goes offline. This requires tracking the Merkle Path for every VTXO in the client state.
+*   **The Goal:** Allow users to construct and broadcast the L1 "Tree Unfolding" transactions (Pool -> Connector -> Branch -> Leaf) if the ASP goes offline. This is the ultimate test of non-custodial architecture.
 
-### 5. Covenant Enforcement
-*   **The Task:** Upgrade the ASP's `TransferService` to enforce graph topology.
-*   **The Goal:** Ensure input VTXOs technically correspond to valid Connector outputs from previous rounds, preventing the ASP from equivocating or double-spending the liquidity pool.
+### 5. Signing Abstraction (Secure Key Management) [Priority Medium]
+*   **The Task:** Decouple key storage from the application logic.
+*   **The Goal:** Refactor ```ArkClient``` to request signatures via an interface rather than accessing raw keys. This prepares the architecture for integration with Hardware Wallets or Browser Extensions, aligning with security best practices.
 
-### 6. External Wallet Integration (BIP-329 / WebLN Standard)
-*   **The Task:** Decouple the "Wallet" from the "DApp."
-*   **The Goal:** Instead of managing VTXOs and keys internally, ArkSwap should connect to an external Ark Wallet (like **Arkade**) via a standard provider interface (e.g., `window.ark` or similar). This allows users to bring their own identity and liquidity to the application, rather than creating a new ephemeral wallet for every session.
+### 6. Wallet Interoperability (BIP-329 / WebLN) [Priority Low]
+*   **The Task:** Implement standard provider interfaces.
+*   **The Goal:** Allow ArkSwap to connect to external Ark Wallets (like Arkade) running in the Regtest environment. This validates that our custom ASP implementation is compatible with the broader Ark ecosystem standards.
 
 ## 🤝 Contributing
 
