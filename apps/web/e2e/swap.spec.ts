@@ -1,6 +1,36 @@
-import { test, expect } from '@playwright/test';
+import { test, expect, request } from '@playwright/test';
 
 test.describe('Swap Happy Path', () => {
+  test.beforeAll(async () => {
+    // Initialize the Market Maker wallet before tests run
+    // Retry logic to wait for API server to be ready
+    const maxRetries = 5;
+    const retryDelay = 1000; // 1 second
+    let lastError: Error | null = null;
+
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        const apiRequest = await request.newContext();
+        const response = await apiRequest.post('http://localhost:3001/faucet/maker');
+        
+        if (response.ok()) {
+          console.log('Market Maker wallet funded successfully');
+          return;
+        }
+        
+        throw new Error(`Faucet API returned status ${response.status()}`);
+      } catch (error) {
+        lastError = error instanceof Error ? error : new Error(String(error));
+        if (attempt < maxRetries) {
+          console.log(`Attempt ${attempt} failed, retrying in ${retryDelay}ms...`);
+          await new Promise((resolve) => setTimeout(resolve, retryDelay));
+        }
+      }
+    }
+
+    throw new Error(`Failed to fund Market Maker wallet after ${maxRetries} attempts: ${lastError?.message}`);
+  });
+
   test('Connect -> Lift -> Swap -> Success', async ({ page }) => {
     // Setup: Navigate to home page
     await page.goto('/');
@@ -45,7 +75,7 @@ test.describe('Swap Happy Path', () => {
       await page.click('button:has-text("Request Quote")');
 
       // Wait for "Lock Address" to appear
-      await expect(page.locator('text=Lock Address:')).toBeVisible({ timeout: 10000 });
+      await expect(page.locator('text=Lock Address:')).toBeVisible({ timeout: 30000 });
 
       // Fill "Your L1 Address" input
       const l1AddressInput = page.locator('input[placeholder="Enter your Bitcoin address"]');

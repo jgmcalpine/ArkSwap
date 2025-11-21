@@ -77,9 +77,6 @@ jobs:
         run: |
           chmod +x scripts/*.sh
           ./scripts/mine.sh 101
-          # Note: We can't assume localhost port mapping works identically in CI without the 'service' container pattern, 
-          # but standard GitHub Actions runners support localhost access to docker compose services.
-          curl -X POST http://localhost:3001/faucet/maker || echo "Faucet call failed, checking logs..."
 
       - name: 🧪 Run Playwright E2E
         run: pnpm --filter @arkswap/web test:e2e
