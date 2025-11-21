@@ -118,6 +118,17 @@ export async function getTxHash(inputs: Omit<ArkInput, 'signature'>[], outputs: 
   throw new Error('Crypto API not available');
 }
 
+// SAFETY HARNESS: Prevent usage on Mainnet
+// This proves the software is for educational purposes only.
+export function assertSafeNetwork(networkName: string) {
+  if (networkName !== 'regtest' && networkName !== 'testnet') {
+    throw new Error(
+      '🚨 SAFETY SHUTDOWN: ArkSwap is a Proof of Concept designed for Regtest only. ' +
+      'Usage on Mainnet is strictly prohibited and unsafe.'
+    );
+  }
+}
+
 export { createSwapLock, getRefundWitness } from './script';
 export type { SwapLockParams, SwapLockResult } from './script';
 

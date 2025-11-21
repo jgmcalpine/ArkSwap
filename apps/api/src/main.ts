@@ -1,7 +1,9 @@
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
+import { assertSafeNetwork } from '@arkswap/protocol';
 
 async function bootstrap() {
+  assertSafeNetwork('regtest');
   const app = await NestFactory.create(AppModule);
   
   // Enable CORS for localhost ports

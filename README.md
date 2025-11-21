@@ -20,9 +20,9 @@
 
 ## 🌊 Overview
 
-**ArkSwap** is a non-custodial liquidity bridge that demonstrates the programmable nature of the **Ark Layer 2 Protocol**. It allows users to atomically swap **Ark VTXOs** for **Bitcoin Layer 1** funds without trusting the service provider.
+**ArkSwap** is a **research prototype** and **reference implementation** designed to explore the programmable nature of the **Ark Layer 2 Protocol**. It simulates a trustless atomic swap architecture where **Ark VTXOs** are exchanged for **Bitcoin Layer 1** funds within a controlled **Regtest** environment.
 
-Unlike standard Ark wallets that only perform simple transfers, ArkSwap acts as a proof-of-concept for **Off-Chain Programmability**. It demonstrates how an Ark Service Provider (ASP) can accept a VTXO transfer encumbered by a custom **Taproot HTLC** (Hash Time-Locked Contract), enabling complex DeFi primitives to exist natively within the Ark protocol rounds.
+Unlike standard Ark wallet implementations that focus on simple value transfer, ArkSwap serves as an educational proof-of-concept for **Off-Chain Programmability**. It provides a working demonstration of how an Ark Service Provider (ASP) can accept VTXO transfers encumbered by custom **Taproot HTLCs** (Hash Time-Locked Contracts), illustrating how advanced conditional logic can exist natively within Ark protocol rounds.
 
 **Key Differentiators:**
 *   **Programmable L2:** Demonstrates VTXO transfers into custom Taproot scripts (not just P2PK).
@@ -38,7 +38,7 @@ But Elena doesn't want to keep her life savings on a Layer 2 hot wallet. She wan
 
 ### The Problem
 Moving money from L2 to L1 usually requires:
-1.  **A Centralized Exchange:** Requires ID verification (KYC) and trusting a custodian.
+1.  **A Centralized Exchange:** Requires trusting a custodian.
 2.  **Individual On-Chain Transactions:** Paying a variable mining fee every single week is expensive and permanently ties her on-chain addresses to her employer.
 
 ### The ArkSwap Solution
@@ -153,6 +153,8 @@ If you are interested in tackling one of these, please open an Issue to discuss 
 ## 🤝 Contributing
 
 We welcome contributions! Please note that this project deals with financial cryptography, so we enforce strict quality controls.
+
+This repository contains Research Code. It is not intended for deployment. Pull Requests that attempt to remove Regtest constraints or add Mainnet configuration support will be closed immediately.
 
 ### Development Workflow
 
