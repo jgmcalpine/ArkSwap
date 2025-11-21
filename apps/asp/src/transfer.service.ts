@@ -10,10 +10,10 @@ export class TransferService implements OnModuleInit {
   constructor(private readonly vtxoStore: VtxoStore) {}
 
   onModuleInit() {
-    // ROBUST IMPORT PATTERN
     // This fixes the "undefined reading verifySchnorr" error by handling
     // both CommonJS and ESM import styles explicitly.
     try {
+      // eslint-disable-next-line @typescript-eslint/no-require-imports, @typescript-eslint/no-var-requires
       const rawEcc = require('@bitcoinerlab/secp256k1');
       const eccLib = rawEcc.default || rawEcc;
       // Initialize bitcoinjs-lib with the raw library (it implements the full interface)

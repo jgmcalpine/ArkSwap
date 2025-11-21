@@ -13,6 +13,7 @@
   },
   "devDependencies": {
     "@types/jest": "^30.0.0",
+    "eslint-plugin-prettier": "^5.5.4",
     "turbo": "^2.0.0"
   },
   "engines": {
