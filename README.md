@@ -30,6 +30,31 @@ Unlike standard Ark wallets that only perform simple transfers, ArkSwap acts as 
 *   **Atomic:** The off-chain VTXO transfer and the on-chain L1 settlement are cryptographically linked.
 *   **Resilient:** Built with reactive state management and automated session recovery.
 
+## 📖 User Story: The Sovereign Exit
+
+**Meet Elena**, a freelancer who gets paid in Bitcoin. She uses **Ark (Layer 2)** for her weekly paycheck because it's instant, private, and works even when her wallet is offline.
+
+But Elena doesn't want to keep her life savings on a Layer 2 hot wallet. She wants to move them to her **Hardware Wallet (Layer 1)** for long-term security.
+
+### The Problem
+Moving money from L2 to L1 usually requires:
+1.  **A Centralized Exchange:** Requires ID verification (KYC) and trusting a custodian.
+2.  **Individual On-Chain Transactions:** Paying a variable mining fee every single week is expensive and permanently ties her on-chain addresses to her employer.
+
+### The ArkSwap Solution
+Elena uses ArkSwap as her **trustless bridge**.
+
+1.  **The Batch:** She accumulates 4 weekly paychecks in her Ark Wallet.
+2.  **The Swap:** She uses ArkSwap to convert all 4 VTXOs into a single Bitcoin L1 transaction sent directly to her cold storage.
+3.  **The Savings:** Instead of paying 4 mining fees, she pays just **one**.
+
+**The Critical Difference:**
+ArkSwap is not an exchange. Elena sends her funds to a **Smart Contract (HTLC)**, not a company wallet.
+*   **If it works:** She gets her Bitcoin on L1 instantly.
+*   **If it fails:** The contract automatically unlocks, and she reclaims her funds via the "Refund" button.
+
+**Elena moves from "Cash" (Ark) to "Gold" (Bitcoin) without ever trusting a third party, at the cadence that works best for her financial and security goals.**
+
 ## 🛠 Tech Stack
 
 This project is organized as a **TurboRepo** monorepo representing a complete L2 ecosystem.
