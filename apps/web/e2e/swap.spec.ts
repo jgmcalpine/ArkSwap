@@ -1,9 +1,8 @@
 import { test, expect, request } from '@playwright/test';
 
-test.describe('Swap Happy Path', () => {
-  // Allow 2 minutes for this test suite (CI is slow)
-  test.setTimeout(120000);
+test.setTimeout(120000);
 
+test.describe('Swap Happy Path', () => {
   test.beforeAll(async () => {
     // Initialize the Market Maker wallet before tests run
     // Retry logic to wait for API server to be ready
@@ -12,6 +11,7 @@ test.describe('Swap Happy Path', () => {
     let lastError: Error | null = null;
 
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      console.log(`[Setup] Attempt ${attempt}/${maxRetries} to connect to API...`);
       try {
         const apiRequest = await request.newContext();
         const response = await apiRequest.post('http://127.0.0.1:3001/faucet/maker');
@@ -25,7 +25,6 @@ test.describe('Swap Happy Path', () => {
       } catch (error) {
         lastError = error instanceof Error ? error : new Error(String(error));
         if (attempt < maxRetries) {
-          console.log(`Waiting for API... Attempt ${attempt}`);
           await new Promise((resolve) => setTimeout(resolve, retryDelay));
         }
       }
