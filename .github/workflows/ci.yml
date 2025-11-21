@@ -1,0 +1,93 @@
+name: ArkSwap CI
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+
+# Prevent duplicate runs if a new commit is pushed to the same PR
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # JOB 1: Code Quality & Unit Logic (Fast)
+  # This covers Linting, Type Checking, and Protocol Math (Fuzzing)
+  quality:
+    name: 🛡️ Code Quality & Unit Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v3
+        with:
+          version: 9
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'pnpm'
+
+      - name: Install Dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: 🔍 Lint
+        run: pnpm turbo lint
+
+      - name: 📐 Type Check
+        run: pnpm turbo type-check
+
+      - name: 🧪 Protocol Unit Tests (Includes Fuzzing)
+        run: pnpm --filter @arkswap/protocol test
+
+  # JOB 2: End-to-End Assurance (Slow & heavy)
+  # This spins up Docker and runs Playwright
+  e2e:
+    name: 🤖 End-to-End Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v3
+        with:
+          version: 9
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'pnpm'
+
+      - name: Install Dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: 🎭 Install Playwright Browsers
+        run: pnpm --filter @arkswap/web exec playwright install --with-deps chromium
+
+      - name: 🐳 Start Docker Universe
+        run: |
+          cd docker
+          docker compose up -d --build
+          # Wait for Bitcoin & ASP to be ready
+          echo "Waiting for services to initialize..."
+          sleep 15 
+
+      - name: ⛏️ Initialize Blockchain (God Mode)
+        # We need to mine blocks to fund the maker wallet before tests start
+        run: |
+          chmod +x scripts/*.sh
+          ./scripts/mine.sh 101
+          # Note: We can't assume localhost port mapping works identically in CI without the 'service' container pattern, 
+          # but standard GitHub Actions runners support localhost access to docker compose services.
+          curl -X POST http://localhost:3001/faucet/maker || echo "Faucet call failed, checking logs..."
+
+      - name: 🧪 Run Playwright E2E
+        run: pnpm --filter @arkswap/web test:e2e
+        env:
+          # Ensure CI environment variable is set
+          CI: true
+
+      - name: 📤 Upload Playwright Report
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: apps/web/playwright-report/
+          retention-days: 5

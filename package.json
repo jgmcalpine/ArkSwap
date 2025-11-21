@@ -7,7 +7,9 @@
     "dev": "turbo dev",
     "build": "turbo build",
     "lint": "turbo lint",
-    "clean": "turbo clean"
+    "clean": "turbo clean",
+    "test": "turbo test",
+    "type-check": "turbo type-check"
   },
   "devDependencies": {
     "@types/jest": "^30.0.0",
