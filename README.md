@@ -120,12 +120,6 @@ Since this runs on Regtest, you control the blockchain. We provide scripts to mi
 curl -X POST http://localhost:3001/faucet/maker
 ```
 
-**Run automated tests:**
-```bash
-# Validates the full user journey happy-path via headless browser
-pnpm --filter @arkswap/web test:e2e
-```
-
 ## 🚀 Roadmap to Mainnet (Call for Contributors)
 
 We have built the "Steel Thread"—a fully functional Swap and Refund flow on Regtest. To elevate ArkSwap from a Reference Architecture to a Production Application, we are seeking contributors for the following critical infrastructure pieces.

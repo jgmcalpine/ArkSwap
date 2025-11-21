@@ -4,8 +4,8 @@ test.describe('Swap Happy Path', () => {
   test.beforeAll(async () => {
     // Initialize the Market Maker wallet before tests run
     // Retry logic to wait for API server to be ready
-    const maxRetries = 10;
-    const retryDelay = 1000; // 1 second
+    const maxRetries = 30;
+    const retryDelay = 2000; // 2 seconds
     let lastError: Error | null = null;
 
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
@@ -22,7 +22,7 @@ test.describe('Swap Happy Path', () => {
       } catch (error) {
         lastError = error instanceof Error ? error : new Error(String(error));
         if (attempt < maxRetries) {
-          console.log(`Attempt ${attempt} failed, retrying in ${retryDelay}ms...`);
+          console.log(`Waiting for API... Attempt ${attempt}`);
           await new Promise((resolve) => setTimeout(resolve, retryDelay));
         }
       }
