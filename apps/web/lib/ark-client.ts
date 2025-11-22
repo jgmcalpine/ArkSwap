@@ -1,6 +1,6 @@
 import { walletTools } from './crypto';
-import type { Vtxo, ArkTransaction, ArkInput, ArkOutput } from '@arkswap/protocol';
-import { getTxHash, VtxoSchema } from '@arkswap/protocol';
+import type { Vtxo, ArkTransaction, ArkInput, ArkOutput, Address, TxId } from '@arkswap/protocol';
+import { getTxHash, VtxoSchema, asTxId, asAddress, asSignatureHex } from '@arkswap/protocol';
 import { z } from 'zod';
 
 const WIF_STORAGE_KEY = 'ark_wallet_wif';
@@ -125,9 +125,10 @@ export class MockArkClient {
    */
   getBalance(address: string): number {
     const vtxos = this.getStorage();
+    const addressBranded = asAddress(address);
     const addressVtxos = vtxos[address] ?? [];
     return addressVtxos
-      .filter(vtxo => !vtxo.spent)
+      .filter(vtxo => !vtxo.spent && vtxo.address === addressBranded)
       .reduce((sum, vtxo) => sum + vtxo.amount, 0);
   }
 
@@ -136,8 +137,9 @@ export class MockArkClient {
    */
   getVtxos(address: string): Vtxo[] {
     const vtxos = this.getStorage();
+    const addressBranded = asAddress(address);
     const addressVtxos = vtxos[address] ?? [];
-    return addressVtxos.filter(vtxo => !vtxo.spent);
+    return addressVtxos.filter(vtxo => !vtxo.spent && vtxo.address === addressBranded);
   }
 
   /**
@@ -153,10 +155,10 @@ export class MockArkClient {
     ).join('');
     
     const newVtxo: Vtxo = {
-      txid,
+      txid: asTxId(txid),
       vout: 0,
       amount,
-      address,
+      address: asAddress(address),
       spent: false,
     };
     
@@ -171,10 +173,11 @@ export class MockArkClient {
    */
   selectCoins(address: string, targetAmount: number): Vtxo[] {
     const unspentVtxos = this.getVtxos(address);
+    const addressBranded = asAddress(address);
     
     // SECURITY FIX: Ensure we only select coins that match the current address
     // This prevents trying to sign coins from a previous wallet session
-    const myCoins = unspentVtxos.filter(v => v.address === address);
+    const myCoins = unspentVtxos.filter(v => v.address === addressBranded);
     
     // Sort by amount descending for better selection
     const sorted = [...myCoins].sort((a, b) => b.amount - a.amount);
@@ -194,7 +197,7 @@ export class MockArkClient {
   /**
    * Marks VTXOs as spent
    */
-  markVtxosSpent(address: string, txids: string[]): void {
+  markVtxosSpent(address: string, txids: TxId[]): void {
     const vtxos = this.getStorage();
     const addressVtxos = vtxos[address] ?? [];
     
@@ -219,7 +222,7 @@ export class MockArkClient {
       // This is a simplified approach - in practice, you'd select specific coins
       const targetAmount = Math.abs(amount);
       const selected = this.selectCoins(address, targetAmount);
-      const txids = selected.map(v => v.txid);
+      const txids: TxId[] = selected.map(v => v.txid);
       this.markVtxosSpent(address, txids);
     }
   }
@@ -323,11 +326,11 @@ export class MockArkClient {
 
     // 2. Build Outputs
     const outputs: ArkOutput[] = [
-      { address: toAddress, amount },
+      { address: asAddress(toAddress), amount },
     ];
 
     if (change > 0) {
-      outputs.push({ address: myAddress, amount: change });
+      outputs.push({ address: asAddress(myAddress), amount: change });
     }
 
     // 3. Prepare Inputs
@@ -379,7 +382,7 @@ export class MockArkClient {
       return {
         txid: coin.txid,
         vout: coin.vout,
-        signature: signatureHex,
+        signature: asSignatureHex(signatureHex),
       };
     });
 

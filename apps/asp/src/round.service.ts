@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { Interval } from '@nestjs/schedule';
 import { randomUUID } from 'crypto';
 import type { Vtxo, ArkTransaction } from '@arkswap/protocol';
+import { asTxId, asAddress } from '@arkswap/protocol';
 import { VtxoStore } from './vtxo-store.service';
 import { TransferService } from './transfer.service';
 
@@ -58,7 +59,7 @@ export class RoundService {
           ).join('');
           
           const vtxo: Vtxo = {
-            txid,
+            txid: asTxId(txid),
             vout: index,
             amount: output.amount,
             address: output.address,
@@ -82,10 +83,10 @@ export class RoundService {
       ).join('');
       
       const vtxo: Vtxo = {
-        txid,
+        txid: asTxId(txid),
         vout: index,
         amount: lift.amount,
-        address: lift.address,
+        address: asAddress(lift.address),
         spent: false,
       };
       

@@ -7,7 +7,7 @@ import { Coins, Droplets, ArrowRightLeft, Loader2, CheckCircle2 } from 'lucide-r
 import { cn } from '../lib/utils';
 import { requestFaucet, requestSwapQuote, commitSwap, getBitcoinInfo, type SwapQuoteResponse } from '../lib/api';
 import { mockArkClient } from '../lib/ark-client';
-import { createSwapLock, type SwapLockResult, type Vtxo, SwapQuoteSchema } from '@arkswap/protocol';
+import { createSwapLock, type SwapLockResult, type Vtxo, SwapQuoteSchema, type TxId } from '@arkswap/protocol';
 import { getErrorMessage } from '../lib/error-utils';
 import { saveSession, loadSession, clearSession, type SwapStep as SwapStepType } from '../lib/swap-session';
 
@@ -33,7 +33,7 @@ export function Dashboard() {
   const [currentBlock, setCurrentBlock] = useState<number | null>(null);
   const [timeoutBlock, setTimeoutBlock] = useState<number | null>(null);
   const [isClaimingRefund, setIsClaimingRefund] = useState(false);
-  const [selectedVtxos, setSelectedVtxos] = useState<string[]>([]);
+  const [selectedVtxos, setSelectedVtxos] = useState<TxId[]>([]);
   const [isManualSelection, setIsManualSelection] = useState(false);
   const [liftStatus, setLiftStatus] = useState<string | null>(null);
   const previousBalanceRef = useRef<number>(balance);
@@ -345,7 +345,7 @@ export function Dashboard() {
   const hasInsufficientFunds = requiredAmount > 0 && selectedTotal < requiredAmount;
 
   // Toggle VTXO selection
-  const toggleVtxo = (txid: string) => {
+  const toggleVtxo = (txid: TxId) => {
     setIsManualSelection(true);
     setSelectedVtxos(prev => 
       prev.includes(txid)

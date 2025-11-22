@@ -1,6 +1,47 @@
 import { z } from 'zod';
 
 /**
+ * Branded Types for Type Safety
+ * These prevent mixing up different string types at compile time
+ */
+declare const __brand: unique symbol;
+
+export type Brand<K, T> = K & { [__brand]: T };
+
+/**
+ * Domain Primitives with Branded Types
+ */
+export type TxId = Brand<string, 'TxId'>;
+export type Address = Brand<string, 'Address'>; // e.g. bcrt1p...
+export type PubkeyHex = Brand<string, 'PubkeyHex'>; // 32-byte hex
+export type SignatureHex = Brand<string, 'SignatureHex'>; // 64-byte hex
+export type PreimageHex = Brand<string, 'PreimageHex'>;
+
+/**
+ * Casting Helpers (Factories)
+ * Useful for tests/mocks to "bless" strings as branded types
+ */
+export function asTxId(s: string): TxId {
+  return s as TxId;
+}
+
+export function asAddress(s: string): Address {
+  return s as Address;
+}
+
+export function asPubkeyHex(s: string): PubkeyHex {
+  return s as PubkeyHex;
+}
+
+export function asSignatureHex(s: string): SignatureHex {
+  return s as SignatureHex;
+}
+
+export function asPreimageHex(s: string): PreimageHex {
+  return s as PreimageHex;
+}
+
+/**
  * Interface for Elliptic Curve Cryptography library operations
  * Matches the methods we use from @bitcoinerlab/secp256k1
  */
@@ -35,28 +76,28 @@ export interface ECCLibrary {
  * Zod Schemas for Runtime Validation
  */
 export const VtxoSchema = z.object({
-  txid: z.string(),
+  txid: z.string().length(64).transform(s => s as TxId),
   vout: z.number().int().nonnegative(),
   amount: z.number().nonnegative(),
-  address: z.string(),
+  address: z.string().startsWith('bcrt1').transform(s => s as Address),
   spent: z.boolean(),
 });
 
 export const SwapQuoteSchema = z.object({
   id: z.string(),
   amount: z.number().nonnegative(),
-  preimageHash: z.string(),
-  makerPubkey: z.string(),
+  preimageHash: z.string().length(64).transform(s => s as PreimageHex),
+  makerPubkey: z.string().length(64).transform(s => s as PubkeyHex),
 });
 
 export const ArkInputSchema = z.object({
-  txid: z.string(),
+  txid: z.string().length(64).transform(s => s as TxId),
   vout: z.number().int().nonnegative(),
-  signature: z.string(),
+  signature: z.string().length(128).transform(s => s as SignatureHex),
 });
 
 export const ArkOutputSchema = z.object({
-  address: z.string(),
+  address: z.string().startsWith('bcrt1').transform(s => s as Address),
   amount: z.number().nonnegative(),
 });
 

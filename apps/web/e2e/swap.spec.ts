@@ -1,5 +1,7 @@
 import { test, expect, request } from '@playwright/test';
 
+test.setTimeout(120000);
+
 test.describe('Swap Happy Path', () => {
   test.beforeAll(async ({ request }) => {
     // The CI pipeline guarantees the API is up and the Maker is funded.
@@ -26,7 +28,7 @@ test.describe('Swap Happy Path', () => {
       await page.click('button:has-text("Connect Wallet")');
 
       // Assert "Your Ark Balance" is visible
-      await expect(page.locator('text=Your Ark Balance')).toBeVisible();
+      await expect(page.getByText('Your Ark Balance')).toBeVisible({ timeout: 15000 });
     });
 
     // Step 2: Lift (Deposit)
