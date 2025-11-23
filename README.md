@@ -55,6 +55,21 @@ ArkSwap is not an exchange. Elena sends her funds to a **Smart Contract (HTLC)**
 
 **Elena moves from "Cash" (Ark) to "Gold" (Bitcoin) without ever trusting a third party, at the cadence that works best for her financial and security goals.**
 
+## 🧩 What's Real vs. Simulated
+
+ArkSwap is designed as a **Research Prototype** operating within a **Local Regtest Simulation**.
+
+The codebase executes valid Bitcoin cryptographic primitives to demonstrate the logic of atomic swaps, but abstracts the expensive network settlement layers to create a lightweight educational environment.
+
+| Component | Status | Description |
+| :--- | :--- | :--- |
+| **Cryptography** | ✅ **Real** | We implement raw **Schnorr Signatures**, **BIP-86 Key Tweaking**, and **Taproot Address** derivation using standard Bitcoin libraries. |
+| **Smart Contracts** | ✅ **Real** | We compile actual **Bitcoin Script** (HTLCs) into Taproot Merkle Trees. The script logic matches the Ark protocol specification. |
+| **Blockchain Node** | ✅ **Real** | We run a genuine **Bitcoin Core** node (Regtest). Time travel and block height are enforced by the actual daemon, not a database counter. |
+| **Market Maker** | ⚠️ **Hybrid** | The trading logic (quoting, locking, verifying) functions autonomously, but it is funded with **Regtest Bitcoin** for demonstration purposes. |
+| **ASP (Network)** | ⚠️ **Hybrid** | The ASP performs real **Input Validation** (checking signatures against pubkeys), but it "mocks" the final **L1 Broadcast** of the Round Transaction. |
+| **Onboarding (Lift)** | ❌ **Mocked** | L1 -> L2 deposits are triggered via an API call for instant feedback, rather than waiting for an L1 funding transaction to confirm. |
+
 ## 🛠 Tech Stack
 
 This project is organized as a **TurboRepo** monorepo representing a complete L2 ecosystem.
@@ -119,21 +134,6 @@ Since this runs on Regtest, you control the blockchain. We provide scripts to mi
 # Sends 50 BTC to the Backend API wallet
 curl -X POST http://localhost:3001/faucet/maker
 ```
-
-## 🧩 What's Real vs. Simulated
-
-ArkSwap is designed as a **Research Prototype** operating within a **Local Regtest Simulation**.
-
-The codebase executes valid Bitcoin cryptographic primitives to demonstrate the logic of atomic swaps, but abstracts the expensive network settlement layers to create a lightweight educational environment.
-
-| Component | Status | Description |
-| :--- | :--- | :--- |
-| **Cryptography** | ✅ **Real** | We implement raw **Schnorr Signatures**, **BIP-86 Key Tweaking**, and **Taproot Address** derivation using standard Bitcoin libraries. |
-| **Smart Contracts** | ✅ **Real** | We compile actual **Bitcoin Script** (HTLCs) into Taproot Merkle Trees. The script logic matches the Ark protocol specification. |
-| **Blockchain Node** | ✅ **Real** | We run a genuine **Bitcoin Core** node (Regtest). Time travel and block height are enforced by the actual daemon, not a database counter. |
-| **Market Maker** | ⚠️ **Hybrid** | The trading logic (quoting, locking, verifying) functions autonomously, but it is funded with **Regtest Bitcoin** for demonstration purposes. |
-| **ASP (Network)** | ⚠️ **Hybrid** | The ASP performs real **Input Validation** (checking signatures against pubkeys), but it "mocks" the final **L1 Broadcast** of the Round Transaction. |
-| **Onboarding (Lift)** | ❌ **Mocked** | L1 -> L2 deposits are triggered via an API call for instant feedback, rather than waiting for an L1 funding transaction to confirm. |
 
 ## 🤝 Contributing
 
