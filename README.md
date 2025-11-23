@@ -120,35 +120,37 @@ Since this runs on Regtest, you control the blockchain. We provide scripts to mi
 curl -X POST http://localhost:3001/faucet/maker
 ```
 
-## 🔬 Research Roadmap: Achieving Protocol Parity
+## ⚠️ Simulated Infrastructure & Educational Abstractions
 
-We have built the "Steel Thread"—a functional Swap and Refund flow on Regtest. However, to make this a Complete Reference Implementation that accurately reflects the Ark Protocol specification, we are seeking contributors for the following architectural improvements.
+ArkSwap is designed exclusively as a local research environment. To isolate and demonstrate the specific cryptographic mechanics of Atomic Swaps, this repository intentionally abstracts several infrastructure 
+components that would be required in a live protocol implementation.
 
-These tasks are designed to close the gap between our current simulation and the formal protocol guarantees.
+The following differences exist between this simulation and the formal Ark Protocol specification:
 
-### 1. Covenant Enforcement (Connectors) [Priority: High]
-*   **The Task:** Upgrade the ASP's ```TransferService``` to enforce graph topology.
-*   **The Goal:** Currently, we only validate signatures. To achieve protocol parity, the ASP must cryptographically enforce that input VTXOs correspond to valid Connector outputs from previous Round Transactions. This prevents the ASP from equivocating or double-spending the liquidity pool.
+### 1. The "Lift" (Onboarding)
+* In this Simulation: Onboarding is triggered via a direct API call to the ASP (/v1/lift). The ASP credits the user immediately to facilitate rapid testing.
 
-### 2. Atomic Lifting (Trustless Onboarding) [Priority: High]
-*   **The Task:** Implement the "Trustless Entry" mechanism.
-*   **The Goal:** Replace the current API-triggered lift with a true Bitcoin L1 listener. The ASP should use a Chain Indexer to detect pre-signed funding transactions on the Regtest blockchain and automatically mint VTXOs. This removes the reliance on the mock ```/lift``` API endpoint.
+* Protocol Specification: A production ASP must never trust an API call. It must operate a Chain Indexer to detect pre-signed funding transactions on Bitcoin L1, minting VTXOs only after cryptographic verification of on-chain funding.
 
-### 3. Persistence Layer & State Recovery [Priority High]
-*   **The Task:** Wire up the scaffolded PostgreSQL database to the NestJS Backend.
-*   **The Goal:** Ensure VTXO states and Round data persist across container restarts. More importantly, implement State Recovery logic where the Client can rebuild its VTXO set by scanning the Regtest blockchain for relevant Round TXIDs, rather than relying on ```localStorage```.
+### 2. Round Settlement
+* In this Simulation: The ASP "finalizes" rounds in memory, updating the local VTXO ledger instantly. It does not broadcast transaction data to the Bitcoin Regtest network.
 
-### 4. The "Double" Unilateral Exit (Ark exit) [Priority Medium]
-*   **The Task:** Implement the protocol-level exit strategy in the Client.
-*   **The Goal:** Allow users to construct and broadcast the L1 "Tree Unfolding" transactions (Pool -> Connector -> Branch -> Leaf) if the ASP goes offline. This is the ultimate test of non-custodial architecture.
+* Protocol Specification: Security relies on the ASP aggregating transfers into a single Round Transaction and broadcasting it to the Bitcoin network. VTXOs are only valid once this transaction is confirmed or pinned in the mempool.
 
-### 5. Signing Abstraction (Secure Key Management) [Priority Medium]
-*   **The Task:** Decouple key storage from the application logic.
-*   **The Goal:** Refactor ```ArkClient``` to request signatures via an interface rather than accessing raw keys. This prepares the architecture for integration with Hardware Wallets or Browser Extensions, aligning with security best practices.
+### 3. Covenant Enforcement
+* In this Simulation: The ASP validates Ownership. It verifies that the Schnorr signature provided matches the public key embedded in the VTXO address.
 
-### 6. Wallet Interoperability (BIP-329 / WebLN) [Priority Low]
-*   **The Task:** Implement standard provider interfaces.
-*   **The Goal:** Allow ArkSwap to connect to external Ark Wallets (like Arkade) running in the Regtest environment. This validates that our custom ASP implementation is compatible with the broader Ark ecosystem standards.
+* Protocol Specification: The ASP must also validate Topology. It must verify that every input VTXO is a valid leaf in the previous round's Connector Tree. This graph validation prevents the ASP from equivocating (double-spending) the underlying liquidity pool.
+
+### 4. State Persistence
+* In this Simulation: The ASP and Market Maker hold state in RAM. Restarting the Docker containers resets the ledger, ensuring a clean slate for every test run.
+
+* Protocol Specification: All VTXO states and active swaps must be persisted to a durable database to prevent loss of user funds during infrastructure restarts.
+
+### 5. Key Management
+* In this Simulation: Private keys are generated and stored in the browser's localStorage for ease of use during testing.
+
+* Protocol Specification: Application logic should be decoupled from key storage. A secure implementation would integrate with an external signer (Hardware Wallet or isolated Browser Extension) via a standard interface, ensuring the application layer never accesses raw private keys.
 
 ## 🤝 Contributing
 
