@@ -11,7 +11,7 @@
 
 # ArkSwap
 
-**The Reference Implementation for Programmable Ark Transactions.**
+**A Reference Implementation for Programmable Ark Transactions.**
 
 ![License](https://img.shields.io/badge/license-MIT-blue.svg)
 ![TypeScript](https://img.shields.io/badge/language-TypeScript-3178c6.svg)
@@ -22,7 +22,7 @@
 
 **ArkSwap** is a **research prototype** and **reference implementation** designed to explore the programmable nature of the **Ark Layer 2 Protocol**. It simulates a trustless atomic swap architecture where **Ark VTXOs** are exchanged for **Bitcoin Layer 1** funds within a controlled **Regtest** environment.
 
-Unlike standard Ark wallet implementations that focus on simple value transfer, ArkSwap serves as an educational proof-of-concept for **Off-Chain Programmability**. It provides a working demonstration of how an Ark Service Provider (ASP) can accept VTXO transfers encumbered by custom **Taproot HTLCs** (Hash Time-Locked Contracts), illustrating how advanced conditional logic can exist natively within Ark protocol rounds.
+ArkSwap serves as an educational proof-of-concept for **Off-Chain Programmability**. It provides a working demonstration of how an Ark Service Provider (ASP) can accept VTXO transfers encumbered by custom **Taproot HTLCs** (Hash Time-Locked Contracts), illustrating how advanced conditional logic can exist natively within Ark protocol rounds.
 
 **Key Differentiators:**
 *   **Programmable L2:** Demonstrates VTXO transfers into custom Taproot scripts (not just P2PK).
@@ -134,6 +134,14 @@ Since this runs on Regtest, you control the blockchain. We provide scripts to mi
 # Sends 50 BTC to the Backend API wallet
 curl -X POST http://localhost:3001/faucet/maker
 ```
+
+Visit ```localhost:3000``` and you will see the frontend for the app.
+
+*** Happy Path
+Connect Wallet --> Deposit --> Set amount to swap --> Request Quote --> Enter L1 Address (```docker exec -it bitcoind bitcoin-cli -regtest -rpcuser=ark -rpcpassword=ark getnewaddress```) --> Confirm Swap --> Boom! Trustless swapping from L2 back to L1.
+
+*** Something Went Wrong Path
+Connect Wallet --> Deposit --> Set amount to swap --> Check 'Simulate Backend Crash' --> Request Quote --> Enter L1 Address --> Confirm Swap --> Move blockchain forward 24 blocks (```./scripts/mine.sh 24```) --> Claim Refund --> Boom! Even if the Market Maker disappears, your funds are yours.
 
 ## 🤝 Contributing
 
