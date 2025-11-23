@@ -120,37 +120,20 @@ Since this runs on Regtest, you control the blockchain. We provide scripts to mi
 curl -X POST http://localhost:3001/faucet/maker
 ```
 
-## ⚠️ Simulated Infrastructure & Educational Abstractions
+## 🧩 What's Real vs. Simulated
 
-ArkSwap is designed exclusively as a local research environment. To isolate and demonstrate the specific cryptographic mechanics of Atomic Swaps, this repository intentionally abstracts several infrastructure 
-components that would be required in a live protocol implementation.
+ArkSwap is designed as a **Research Prototype** operating within a **Local Regtest Simulation**.
 
-The following differences exist between this simulation and the formal Ark Protocol specification:
+The codebase executes valid Bitcoin cryptographic primitives to demonstrate the logic of atomic swaps, but abstracts the expensive network settlement layers to create a lightweight educational environment.
 
-### 1. The "Lift" (Onboarding)
-* In this Simulation: Onboarding is triggered via a direct API call to the ASP (/v1/lift). The ASP credits the user immediately to facilitate rapid testing.
-
-* Protocol Specification: A production ASP must never trust an API call. It must operate a Chain Indexer to detect pre-signed funding transactions on Bitcoin L1, minting VTXOs only after cryptographic verification of on-chain funding.
-
-### 2. Round Settlement
-* In this Simulation: The ASP "finalizes" rounds in memory, updating the local VTXO ledger instantly. It does not broadcast transaction data to the Bitcoin Regtest network.
-
-* Protocol Specification: Security relies on the ASP aggregating transfers into a single Round Transaction and broadcasting it to the Bitcoin network. VTXOs are only valid once this transaction is confirmed or pinned in the mempool.
-
-### 3. Covenant Enforcement
-* In this Simulation: The ASP validates Ownership. It verifies that the Schnorr signature provided matches the public key embedded in the VTXO address.
-
-* Protocol Specification: The ASP must also validate Topology. It must verify that every input VTXO is a valid leaf in the previous round's Connector Tree. This graph validation prevents the ASP from equivocating (double-spending) the underlying liquidity pool.
-
-### 4. State Persistence
-* In this Simulation: The ASP and Market Maker hold state in RAM. Restarting the Docker containers resets the ledger, ensuring a clean slate for every test run.
-
-* Protocol Specification: All VTXO states and active swaps must be persisted to a durable database to prevent loss of user funds during infrastructure restarts.
-
-### 5. Key Management
-* In this Simulation: Private keys are generated and stored in the browser's localStorage for ease of use during testing.
-
-* Protocol Specification: Application logic should be decoupled from key storage. A secure implementation would integrate with an external signer (Hardware Wallet or isolated Browser Extension) via a standard interface, ensuring the application layer never accesses raw private keys.
+| Component | Status | Description |
+| :--- | :--- | :--- |
+| **Cryptography** | ✅ **Native** | We implement raw **Schnorr Signatures**, **BIP-86 Key Tweaking**, and **Taproot Address** derivation using standard Bitcoin libraries. |
+| **Smart Contracts** | ✅ **Native** | We compile actual **Bitcoin Script** (HTLCs) into Taproot Merkle Trees. The script logic matches the Ark protocol specification. |
+| **Blockchain Node** | ✅ **Native** | We run a genuine **Bitcoin Core** node (Regtest). Time travel and block height are enforced by the actual daemon, not a database counter. |
+| **Market Maker** | ⚠️ **Hybrid** | The trading logic (quoting, locking, verifying) functions autonomously, but it is funded with **Regtest Bitcoin** for demonstration purposes. |
+| **ASP (Network)** | ⚠️ **Hybrid** | The ASP performs real **Input Validation** (checking signatures against pubkeys), but it "mocks" the final **L1 Broadcast** of the Round Transaction. |
+| **Onboarding (Lift)** | ❌ **Mocked** | L1 -> L2 deposits are triggered via an API call for instant feedback, rather than waiting for an L1 funding transaction to confirm. |
 
 ## 🤝 Contributing
 
