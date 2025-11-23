@@ -128,9 +128,9 @@ The codebase executes valid Bitcoin cryptographic primitives to demonstrate the 
 
 | Component | Status | Description |
 | :--- | :--- | :--- |
-| **Cryptography** | ✅ **Native** | We implement raw **Schnorr Signatures**, **BIP-86 Key Tweaking**, and **Taproot Address** derivation using standard Bitcoin libraries. |
-| **Smart Contracts** | ✅ **Native** | We compile actual **Bitcoin Script** (HTLCs) into Taproot Merkle Trees. The script logic matches the Ark protocol specification. |
-| **Blockchain Node** | ✅ **Native** | We run a genuine **Bitcoin Core** node (Regtest). Time travel and block height are enforced by the actual daemon, not a database counter. |
+| **Cryptography** | ✅ **Real** | We implement raw **Schnorr Signatures**, **BIP-86 Key Tweaking**, and **Taproot Address** derivation using standard Bitcoin libraries. |
+| **Smart Contracts** | ✅ **Real** | We compile actual **Bitcoin Script** (HTLCs) into Taproot Merkle Trees. The script logic matches the Ark protocol specification. |
+| **Blockchain Node** | ✅ **Real** | We run a genuine **Bitcoin Core** node (Regtest). Time travel and block height are enforced by the actual daemon, not a database counter. |
 | **Market Maker** | ⚠️ **Hybrid** | The trading logic (quoting, locking, verifying) functions autonomously, but it is funded with **Regtest Bitcoin** for demonstration purposes. |
 | **ASP (Network)** | ⚠️ **Hybrid** | The ASP performs real **Input Validation** (checking signatures against pubkeys), but it "mocks" the final **L1 Broadcast** of the Round Transaction. |
 | **Onboarding (Lift)** | ❌ **Mocked** | L1 -> L2 deposits are triggered via an API call for instant feedback, rather than waiting for an L1 funding transaction to confirm. |
