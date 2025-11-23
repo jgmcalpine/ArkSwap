@@ -135,12 +135,12 @@ Since this runs on Regtest, you control the blockchain. We provide scripts to mi
 curl -X POST http://localhost:3001/faucet/maker
 ```
 
-Visit ```localhost:3000``` and you will see the frontend for the app.
+### 5. Visit ```localhost:3000``` and you will see the frontend for the app.
 
-*** Happy Path
+**Happy Path**
 Connect Wallet --> Deposit --> Set amount to swap --> Request Quote --> Enter L1 Address (```docker exec -it bitcoind bitcoin-cli -regtest -rpcuser=ark -rpcpassword=ark getnewaddress```) --> Confirm Swap --> Boom! Trustless swapping from L2 back to L1.
 
-*** Something Went Wrong Path
+**Something Went Wrong Path**
 Connect Wallet --> Deposit --> Set amount to swap --> Check 'Simulate Backend Crash' --> Request Quote --> Enter L1 Address --> Confirm Swap --> Move blockchain forward 24 blocks (```./scripts/mine.sh 24```) --> Claim Refund --> Boom! Even if the Market Maker disappears, your funds are yours.
 
 ## 🤝 Contributing
