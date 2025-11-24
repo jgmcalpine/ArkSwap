@@ -24,12 +24,6 @@
 
 ArkSwap serves as an educational proof-of-concept for **Off-Chain Programmability**. It provides a working demonstration of how an Ark Service Provider (ASP) can accept VTXO transfers encumbered by custom **Taproot HTLCs** (Hash Time-Locked Contracts), illustrating how advanced conditional logic can exist natively within Ark protocol rounds.
 
-**Key Differentiators:**
-*   **Programmable L2:** Demonstrates VTXO transfers into custom Taproot scripts (not just P2PK).
-*   **Trustless:** Swaps are secured by mathematical timelocks. If the Market Maker fails to pay, the protocol enforces a refund.
-*   **Atomic:** The off-chain VTXO transfer and the on-chain L1 settlement are cryptographically linked.
-*   **Resilient:** Built with reactive state management and automated session recovery.
-
 ## 📖 User Story: The Sovereign Exit
 
 **Meet Elena**, a freelancer who gets paid in Bitcoin. She uses **Ark (Layer 2)** for her weekly paycheck because it's instant, private, and works even when her wallet is offline.
@@ -135,12 +129,14 @@ Since this runs on Regtest, you control the blockchain. We provide scripts to mi
 curl -X POST http://localhost:3001/faucet/maker
 ```
 
-### 5. Visit ```localhost:3000``` and you will see the frontend for the app.
+### 5. Try out the app
 
-**Happy Path**
+Visit ```localhost:3000``` and you will see the frontend for the app.
+
+**Happy Path:**
 Connect Wallet --> Deposit --> Set amount to swap --> Request Quote --> Enter L1 Address (```docker exec -it bitcoind bitcoin-cli -regtest -rpcuser=ark -rpcpassword=ark getnewaddress```) --> Confirm Swap --> Boom! Trustless swapping from L2 back to L1.
 
-**Something Went Wrong Path**
+**Something Went Wrong Path:**
 Connect Wallet --> Deposit --> Set amount to swap --> Check 'Simulate Backend Crash' --> Request Quote --> Enter L1 Address --> Confirm Swap --> Move blockchain forward 24 blocks (```./scripts/mine.sh 24```) --> Claim Refund --> Boom! Even if the Market Maker disappears, your funds are yours.
 
 ## 🤝 Contributing
