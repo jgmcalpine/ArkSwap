@@ -22,7 +22,7 @@
 
 **ArkSwap** is a **research prototype** and **reference implementation** designed to explore the programmable nature of the **Ark Layer 2 Protocol**. It simulates a trustless atomic swap architecture where **Ark VTXOs** are exchanged for **Bitcoin Layer 1** funds within a controlled **Regtest** environment.
 
-ArkSwap serves as an educational proof-of-concept for **Off-Chain Programmability**. It provides a working demonstration of how an Ark Service Provider (ASP) can accept VTXO transfers encumbered by custom **Taproot HTLCs** (Hash Time-Locked Contracts), illustrating how advanced conditional logic can exist natively within Ark protocol rounds.
+ArkSwap serves as an educational proof-of-concept for **Off-Chain Programmability**. It provides a working demonstration of how an Ark Service Provider (ASP) can process transfers that **target VTXOs encumbered by custom Taproot HTLCs** (Hash Time-Locked Contracts), illustrating how advanced conditional logic can exist natively within Ark protocol rounds.
 
 ## 📖 User Story: The Sovereign Exit
 
