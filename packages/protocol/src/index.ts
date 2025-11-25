@@ -16,6 +16,7 @@ export type Address = Brand<string, 'Address'>; // e.g. bcrt1p...
 export type PubkeyHex = Brand<string, 'PubkeyHex'>; // 32-byte hex
 export type SignatureHex = Brand<string, 'SignatureHex'>; // 64-byte hex
 export type PreimageHex = Brand<string, 'PreimageHex'>;
+export type Genome = Brand<string, 'Genome'>; // 32-byte hex (64 hex chars)
 
 /**
  * Casting Helpers (Factories)
@@ -39,6 +40,10 @@ export function asSignatureHex(s: string): SignatureHex {
 
 export function asPreimageHex(s: string): PreimageHex {
   return s as PreimageHex;
+}
+
+export function asGenome(s: string): Genome {
+  return s as Genome;
 }
 
 /**
@@ -172,4 +177,16 @@ export function assertSafeNetwork(networkName: string) {
 
 export { createSwapLock, getRefundWitness } from './script';
 export type { SwapLockParams, SwapLockResult } from './script';
+
+/**
+ * Asset Metadata for SatoshiKoi
+ * Contains DNA, generation, and cooldown information
+ */
+export interface AssetMetadata {
+  dna: Genome;
+  generation: number;
+  cooldownBlock: number;
+}
+
+export { mixGenomes, generateGenesisDNA } from './genetics';
 
