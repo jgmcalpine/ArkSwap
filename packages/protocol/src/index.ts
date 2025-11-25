@@ -175,7 +175,7 @@ export function assertSafeNetwork(networkName: string) {
   }
 }
 
-export { createSwapLock, getRefundWitness } from './script';
+export { createSwapLock, getRefundWitness, createAssetLock, getAssetHash } from './script';
 export type { SwapLockParams, SwapLockResult } from './script';
 
 /**
@@ -201,7 +201,7 @@ export const AssetMetadataSchema = z.object({
   cooldownBlock: z.number().int().nonnegative(),
   lastFedBlock: z.number().int().nonnegative(),
   xp: z.number().nonnegative().default(0),
-  parents: z.array(z.string().length(64)).optional(),
+  parents: z.array(z.string().length(64)).optional().transform((val) => val ?? []),
 });
 
 /**

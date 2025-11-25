@@ -18,7 +18,8 @@ describe('AssetMetadataSchema', () => {
       expect(result.cooldownBlock).toBe(100);
       expect(result.lastFedBlock).toBe(50);
       expect(result.xp).toBe(0);
-      expect(result.parents).toBeUndefined();
+      // parents is normalized to [] when undefined
+      expect(result.parents).toEqual([]);
     });
 
     it('should default xp to 0 when not provided', () => {
