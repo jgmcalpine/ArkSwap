@@ -139,16 +139,16 @@ Connect Wallet --> Deposit --> Set amount to swap --> Request Quote --> Enter L1
 **Something Went Wrong Path:**
 Connect Wallet --> Deposit --> Set amount to swap --> Check 'Simulate Backend Crash' --> Request Quote --> Enter L1 Address --> Confirm Swap --> Move blockchain forward 24 blocks (```./scripts/mine.sh 24```) --> Claim Refund --> Boom! Even if the Market Maker disappears, your funds are yours.
 
-## 🚧 Phase 2: Protocol Parity & The Unilateral Exit
+## 🚧 Phase 2: SatoshiKoi (Ark Assets Protocol)
 
-We are currently upgrading ArkSwap to move from a **Simulated L2** to a **Cryptographically Complete L2**.
+We are currently expanding this repository to include **SatoshiKoi**, a reference implementation of the **Ark Assets Protocol**.
 
-While the current version demonstrates the *Application Layer* (Swaps), Phase 2 targets the *Consensus Layer* (Exits). We are replacing the mocked ASP infrastructure with a fully compliant implementation to demonstrate the "Nuclear Option" of the Ark Protocol.
+While ArkSwap demonstrates *Fungible Value Transfer* (Currency), SatoshiKoi demonstrates **Non-Fungible State Transitions** (Unique Assets) within the Ark architecture.
 
-**The Upgrade Scope:**
-*   **True Round Settlement:** The ASP will no longer "pretend" to finalize rounds. It will construct and broadcast actual **Transaction Trees** to the Bitcoin Regtest network.
-*   **Connector Management:** The Client will download and verify the specific branch of pre-signed "Connector Transactions" required to secure their VTXOs.
-*   **The "Red Button" (Ark Exit):** We will implement the **Double Unilateral Exit** directly in the dashboard. Users will be able to simulate an ASP failure and manually broadcast the multi-stage transaction chain (Pool → Connector → Branch → Leaf) to recover their funds on L1 without permission.
+**The Research Scope:**
+*   **Client-Side Validation:** Implementing "Genetics" as a deterministic protocol rule. The Client validates that state transitions (Breeding) performed by the ASP match the mathematical rules of the protocol.
+*   **Taproot Asset Binding:** Mathematically binding Asset Metadata (DNA) to the VTXO via **Taproot Tweaks** (`Pubkey + Hash(AssetData)`). This ensures that the asset cannot be separated from the coin, preventing "fake" assets from circulating.
+*   **Colored Coin Selection:** Upgrading the Wallet Logic to distinguish between "Payment VTXOs" (Gas/Money) and "Asset VTXOs" (Fish), ensuring users never accidentally spend their collectibles as mining fees.
 
 ## 🤝 Contributing
 
