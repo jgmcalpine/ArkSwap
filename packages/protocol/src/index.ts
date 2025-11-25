@@ -180,13 +180,45 @@ export type { SwapLockParams, SwapLockResult } from './script';
 
 /**
  * Asset Metadata for SatoshiKoi
- * Contains DNA, generation, and cooldown information
+ * Contains DNA, generation, cooldown, lineage, and growth points information
  */
 export interface AssetMetadata {
   dna: Genome;
   generation: number;
   cooldownBlock: number;
+  lastFedBlock: number;
+  xp: number; // Growth points for feeding mini-game (default 0)
+  parents?: string[]; // Optional array of TxIDs for lineage tracking
 }
+
+/**
+ * Zod Schema for Asset Metadata
+ * Validates DNA (64 hex chars), generation (>= 0), xp (>= 0), and block heights
+ */
+export const AssetMetadataSchema = z.object({
+  dna: z.string().length(64).regex(/^[0-9a-fA-F]+$/).transform(s => s as Genome),
+  generation: z.number().int().nonnegative(),
+  cooldownBlock: z.number().int().nonnegative(),
+  lastFedBlock: z.number().int().nonnegative(),
+  xp: z.number().nonnegative().default(0),
+  parents: z.array(z.string().length(64)).optional(),
+});
+
+/**
+ * Zod Schema for Asset VTXO
+ * Extends VtxoSchema with assetId and metadata validation
+ */
+export const AssetVtxoSchema = VtxoSchema.extend({
+  assetId: z.string().min(1),
+  metadata: AssetMetadataSchema,
+});
+
+/**
+ * Asset VTXO extends standard VTXO with asset-specific metadata
+ * Used for SatoshiKoi and other asset-backed VTXOs
+ * Type inferred from AssetVtxoSchema (Single Source of Truth)
+ */
+export type AssetVtxo = z.infer<typeof AssetVtxoSchema>;
 
 export { mixGenomes, generateGenesisDNA } from './genetics';
 
