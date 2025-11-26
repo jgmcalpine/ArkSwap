@@ -1,5 +1,4 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { NotFoundException } from '@nestjs/common';
 import { AssetStore } from './asset.store';
 import { AssetsController } from './assets.controller';
 import { RoundService } from '../round.service';
@@ -97,13 +96,10 @@ describe('Assets', () => {
       expect(result).toEqual(mockData);
     });
 
-    it('should throw NotFoundException for non-existent txid', () => {
-      expect(() => {
-        controller.getMetadata('bad_id');
-      }).toThrow(NotFoundException);
-      expect(() => {
-        controller.getMetadata('bad_id');
-      }).toThrow('Asset metadata not found for txid: bad_id');
+    it('should return null for non-existent txid', () => {
+      // Controller returns null (200 OK) instead of 404 - "not an asset" is a valid state for a VTXO
+      const result = controller.getMetadata('bad_id');
+      expect(result).toBeNull();
     });
   });
 });

@@ -3,11 +3,12 @@
 import { useState, useEffect, useRef } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useWallet } from '../context/WalletContext';
-import { Coins, Droplets, ArrowRightLeft, Loader2, CheckCircle2, Fish } from 'lucide-react';
+import { Coins, Droplets, ArrowRightLeft, Loader2, CheckCircle2, Fish, Eye } from 'lucide-react';
+import { KoiPond } from './KoiPond';
 import { cn } from '../lib/utils';
 import { requestFaucet, requestSwapQuote, commitSwap, getBitcoinInfo, type SwapQuoteResponse } from '../lib/api';
 import { mockArkClient } from '../lib/ark-client';
-import { createSwapLock, type SwapLockResult, type Vtxo, SwapQuoteSchema, type TxId } from '@arkswap/protocol';
+import { createSwapLock, type SwapLockResult, type Vtxo, SwapQuoteSchema, type TxId, type AssetMetadata } from '@arkswap/protocol';
 import { getErrorMessage } from '../lib/error-utils';
 import { saveSession, loadSession, clearSession, type SwapStep as SwapStepType } from '../lib/swap-session';
 
@@ -40,9 +41,7 @@ export function Dashboard() {
   const l1AddressInputRef = useRef<HTMLInputElement | null>(null);
   const [loadingText, setLoadingText] = useState<string | null>(null);
   const hasLoadedSessionRef = useRef<boolean>(false);
-  const [isMinting, setIsMinting] = useState(false);
-  const [mintError, setMintError] = useState<string | null>(null);
-  const [mintStatus, setMintStatus] = useState<string | null>(null);
+  const [isEnteringPond, setIsEnteringPond] = useState<string | null>(null);
 
   // React Query for bitcoin info (used in pendingRefund step)
   const { data: bitcoinInfo } = useQuery({
@@ -126,17 +125,6 @@ export function Dashboard() {
     previousBalanceRef.current = balance;
   }, [balance, liftStatus]);
 
-  // Clear mint status when a new asset appears (checking for VTXOs with metadata)
-  // Also track previous count to detect new assets
-  const previousAssetCountRef = useRef<number>(0);
-  useEffect(() => {
-    const currentAssetCount = vtxos.filter(v => v.metadata).length;
-    // If we have more assets than before and there's a mint status, clear it
-    if (currentAssetCount > previousAssetCountRef.current && mintStatus) {
-      setMintStatus(null);
-    }
-    previousAssetCountRef.current = currentAssetCount;
-  }, [vtxos, mintStatus]);
 
   const handleFaucet = async () => {
     if (!address) return;
@@ -159,30 +147,6 @@ export function Dashboard() {
       setFaucetError(getErrorMessage(error));
     } finally {
       setIsLoading(false);
-    }
-  };
-
-  const handleMint = async () => {
-    if (!address) return;
-    
-    setIsMinting(true);
-    setMintError(null);
-    setMintStatus(null);
-    try {
-      // Call the mint endpoint
-      await mockArkClient.mintGen0(1000);
-      
-      // Show status message
-      setMintStatus('Fish sent to pool. Waiting for Round...');
-      
-      // Note: The fish will appear in the wallet automatically when the Round finalizes
-      // and the poller fetches the new coin (every 5 seconds)
-      
-    } catch (error) {
-      console.error("Mint failed", error);
-      setMintError(getErrorMessage(error));
-    } finally {
-      setIsMinting(false);
     }
   };
 
@@ -451,6 +415,20 @@ export function Dashboard() {
     }
   }, [swapStep, bitcoinInfo]);
 
+  const handleEnterPond = async (vtxo: Vtxo) => {
+    if (!vtxo.metadata) return;
+
+    setIsEnteringPond(vtxo.txid);
+
+    try {
+      await mockArkClient.enterPond(vtxo);
+    } catch (error) {
+      console.error('Failed to enter pond:', error);
+    } finally {
+      setIsEnteringPond(null);
+    }
+  };
+
   if (!isConnected) {
     return (
       <div className="mx-auto max-w-4xl px-4 py-12 sm:px-6 lg:px-8">
@@ -517,39 +495,6 @@ export function Dashboard() {
             >
               <Droplets className="h-4 w-4" />
               {isLoading ? 'Processing...' : 'Deposit'}
-            </button>
-          </div>
-        </div>
-
-        {/* SatoshiKoi Pond Card */}
-        <div className="rounded-xl border border-gray-800 bg-gray-900/50 p-6 backdrop-blur-sm">
-          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-            <div className="flex-1 min-w-0">
-              <h3 className="text-sm font-medium text-gray-400">SatoshiKoi Pond</h3>
-              <p className="mt-1 text-sm text-gray-500">
-                Mint a Gen 0 Koi that will appear in your wallet after the next Round (5 seconds)
-              </p>
-              {mintStatus && (
-                <p className="mt-2 text-sm text-cyan-400 break-words">{mintStatus}</p>
-              )}
-              {mintError && (
-                <p className="mt-2 text-sm text-red-400 break-words">{mintError}</p>
-              )}
-            </div>
-            <button
-              onClick={handleMint}
-              disabled={isMinting}
-              className={cn(
-                'flex items-center gap-2 rounded-lg border border-cyan-700 bg-cyan-900/20 px-4 py-2',
-                'text-sm font-medium text-cyan-400 transition-colors',
-                'hover:bg-cyan-900/30 hover:text-cyan-300',
-                'focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:ring-offset-2 focus:ring-offset-gray-900',
-                'disabled:cursor-not-allowed disabled:opacity-50',
-                'w-full sm:w-auto flex-shrink-0'
-              )}
-            >
-              <Fish className="h-4 w-4" />
-              {isMinting ? 'Minting...' : 'Mint Gen 0 Fish (1000 sats)'}
             </button>
           </div>
         </div>
@@ -634,25 +579,28 @@ export function Dashboard() {
                   const renderVtxo = (vtxo: typeof vtxos[0]) => {
                     const isSelected = selectedVtxos.includes(vtxo.txid);
                     const isAsset = !!vtxo.metadata;
+                    const isEntering = isEnteringPond === vtxo.txid;
                     
                     return (
-                      <button
+                      <div
                         key={vtxo.txid}
-                        type="button"
-                        onClick={() => toggleVtxo(vtxo.txid)}
                         className={cn(
-                          'w-full flex items-center justify-between rounded-lg border p-3 text-left',
-                          'transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500',
+                          'w-full flex items-center justify-between rounded-lg border p-3',
+                          'transition-colors',
                           isSelected
                             ? isAsset
                               ? 'border-cyan-500 bg-cyan-500/10'
                               : 'border-green-500 bg-green-500/10'
                             : isAsset
-                              ? 'border-cyan-700 bg-cyan-900/20 hover:bg-cyan-900/30'
-                              : 'border-gray-700 bg-gray-800/50 hover:bg-gray-800'
+                              ? 'border-cyan-700 bg-cyan-900/20'
+                              : 'border-gray-700 bg-gray-800/50'
                         )}
                       >
-                        <div className="flex items-center gap-3 flex-1 min-w-0">
+                        <button
+                          type="button"
+                          onClick={() => toggleVtxo(vtxo.txid)}
+                          className="flex items-center gap-3 flex-1 min-w-0 text-left focus:outline-none focus:ring-2 focus:ring-blue-500 rounded"
+                        >
                           {isAsset ? (
                             <Fish className="h-5 w-5 text-cyan-400 flex-shrink-0" />
                           ) : (
@@ -681,8 +629,34 @@ export function Dashboard() {
                               {vtxo.txid.slice(0, 16)}...{vtxo.txid.slice(-8)}
                             </p>
                           </div>
-                        </div>
-                      </button>
+                        </button>
+                        {isAsset && vtxo.metadata && (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleEnterPond(vtxo);
+                            }}
+                            disabled={isEntering}
+                            className={cn(
+                              'ml-2 flex items-center gap-1 rounded-lg border border-cyan-700 bg-cyan-900/20 px-2 py-1',
+                              'text-xs font-medium text-cyan-400 transition-colors',
+                              'hover:bg-cyan-900/30 hover:text-cyan-300',
+                              'focus:outline-none focus:ring-2 focus:ring-cyan-500',
+                              'disabled:cursor-not-allowed disabled:opacity-50',
+                              'flex-shrink-0'
+                            )}
+                            title="Show Off"
+                          >
+                            {isEntering ? (
+                              <Loader2 className="h-3 w-3 animate-spin" />
+                            ) : (
+                              <Eye className="h-3 w-3" />
+                            )}
+                            <span className="hidden sm:inline">Show Off</span>
+                          </button>
+                        )}
+                      </div>
                     );
                   };
                   
@@ -957,6 +931,13 @@ export function Dashboard() {
             )}
           </div>
         </div>
+
+        {/* KoiPond Component */}
+        <KoiPond
+          walletAddress={address}
+          vtxos={vtxos}
+          onEnterPond={handleEnterPond}
+        />
       </div>
     </div>
   );

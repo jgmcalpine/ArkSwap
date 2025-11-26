@@ -31,6 +31,23 @@ export class AssetsController {
     return this.store.getAllAsObject();
   }
 
+  @Get('stats')
+  getStats(): { total: number; distribution: Record<string, number> } {
+    // Ensure store returns safe defaults - never return undefined
+    const total = this.store.getTotalCount() ?? 0;
+    const distribution = this.store.getRarityDistribution() ?? {
+      common: 0,
+      rare: 0,
+      epic: 0,
+      legendary: 0,
+    };
+    
+    return {
+      total,
+      distribution,
+    };
+  }
+
   @Get(':txid')
   getMetadata(@Param('txid') txid: string): AssetMetadata | null {
     const metadata = this.store.getMetadata(txid);

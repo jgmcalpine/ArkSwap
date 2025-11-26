@@ -190,8 +190,10 @@ export function createAssetPayToPublicKey(
   const tweakedPubkey = Buffer.from(tweakResult.xOnlyPubkey);
 
   // 3. Generate P2TR address
+  // Use internalPubkey so bitcoinjs-lib applies the Taproot tweak (BIP-86)
+  // This matches the signing logic in signPondEntry which applies both asset and Taproot tweaks
   const payment = bitcoin.payments.p2tr({
-    pubkey: tweakedPubkey,
+    internalPubkey: tweakedPubkey,
     network: NETWORK,
   });
 

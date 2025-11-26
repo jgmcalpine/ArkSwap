@@ -8,10 +8,11 @@ import { VtxoStore } from './vtxo-store.service';
 import { TransferService } from './transfer.service';
 import { AssetStore } from './assets/asset.store';
 import { AssetsController } from './assets/assets.controller';
+import { PondController } from './pond/pond.controller';
 
 @Module({
   imports: [ScheduleModule.forRoot()],
-  controllers: [InfoController, LiftController, TransferController, AssetsController],
+  controllers: [InfoController, LiftController, TransferController, AssetsController, PondController],
   providers: [RoundService, VtxoStore, TransferService, AssetStore],
 })
 export class AppModule {}

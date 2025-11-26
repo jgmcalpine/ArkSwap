@@ -1,6 +1,6 @@
 import { walletTools } from './crypto';
 import type { Vtxo, ArkTransaction, ArkInput, ArkOutput, Address, TxId, AssetMetadata } from '@arkswap/protocol';
-import { getTxHash, VtxoSchema, AssetMetadataSchema, asTxId, asAddress, asSignatureHex, createAssetPayToPublicKey } from '@arkswap/protocol';
+import { getTxHash, VtxoSchema, AssetMetadataSchema, asTxId, asAddress, asSignatureHex, createAssetPayToPublicKey, getAssetHash } from '@arkswap/protocol';
 import { z } from 'zod';
 
 const WIF_STORAGE_KEY = 'ark_wallet_wif';
@@ -147,6 +147,46 @@ export class MockArkClient {
   async sign(hash: Buffer): Promise<Buffer> {
     // TODO: Implement in Chunk 8
     throw new Error('sign() not yet implemented');
+  }
+
+  /**
+   * Private helper: Signs a hash using BIP-86 (Taproot) tweaked private key
+   * Returns the signature as a hex string
+   */
+  private async signSchnorr(hash: Buffer): Promise<string> {
+    const { bitcoin, ECPair, network } = walletTools;
+    const keyPair = await this.getKeyPair();
+
+    // --- BIP-86 SIGNING LOGIC START ---
+
+    // 1. Prepare the Private Key Buffer (32 bytes)
+    if (!keyPair.privateKey) throw new Error('Missing private key');
+    let privateKeyBuffer = keyPair.privateKey.length === 33 
+      ? keyPair.privateKey.slice(1) 
+      : keyPair.privateKey;
+
+    // 2. Handle Key Parity (Critical for Taproot)
+    // If the public key has an ODD Y-coordinate (prefix 0x03), 
+    // we must negate the private key before tweaking to match the x-only pubkey expectation.
+    if (keyPair.publicKey[0] === 0x03) {
+      privateKeyBuffer = Buffer.from(walletTools.ecc.privateNegate(privateKeyBuffer));
+    }
+
+    // 3. Get x-only Pubkey
+    const internalPubkey = keyPair.publicKey.slice(1, 33);
+
+    // 4. Calculate Tweak
+    const tweakHash = bitcoin.crypto.taggedHash('TapTweak', internalPubkey);
+
+    // 5. Apply Tweak
+    const tweakedPrivateKey = walletTools.ecc.privateAdd(privateKeyBuffer, tweakHash);
+    if (!tweakedPrivateKey) throw new Error('Failed to tweak private key');
+
+    // --- BIP-86 SIGNING LOGIC END ---
+
+    // Sign using the TWEAKED private key
+    const signatureRaw = walletTools.ecc.signSchnorr(hash, tweakedPrivateKey);
+    return Buffer.from(signatureRaw).toString('hex');
   }
 
   /**
@@ -473,48 +513,17 @@ export class MockArkClient {
     const txHashHex = await getTxHash(inputsUnsigned, outputs);
     const txHashBuffer = Buffer.from(txHashHex, 'hex');
 
-    // --- BIP-86 SIGNING LOGIC START ---
-
-    // 1. Prepare the Private Key Buffer (32 bytes)
-    if (!keyPair.privateKey) throw new Error('Missing private key');
-    let privateKeyBuffer = keyPair.privateKey.length === 33 
-      ? keyPair.privateKey.slice(1) 
-      : keyPair.privateKey;
-
-    // 2. Handle Key Parity (Critical for Taproot)
-    // If the public key has an ODD Y-coordinate (prefix 0x03), 
-    // we must negate the private key before tweaking to match the x-only pubkey expectation.
-    if (keyPair.publicKey[0] === 0x03) {
-      privateKeyBuffer = Buffer.from(walletTools.ecc.privateNegate(privateKeyBuffer));
-    }
-
-    // 3. Get x-only Pubkey
-    const internalPubkey = keyPair.publicKey.slice(1, 33);
-
-    // 4. Calculate Tweak
-    const tweakHash = bitcoin.crypto.taggedHash('TapTweak', internalPubkey);
-
-    // 5. Apply Tweak
-    const tweakedPrivateKey = walletTools.ecc.privateAdd(privateKeyBuffer, tweakHash);
-    if (!tweakedPrivateKey) throw new Error('Failed to tweak private key');
-
-    // --- BIP-86 SIGNING LOGIC END ---
-
-    // Create tweaked keypair for validation (needed for proper key format)
-    const tweakedKeyPair = ECPair.fromPrivateKey(Buffer.from(tweakedPrivateKey), { network });
-
     // 5. Sign Inputs
-    const inputs: ArkInput[] = selected.map((coin) => {
-      // Sign using the TWEAKED private key
-      const signatureRaw = walletTools.ecc.signSchnorr(txHashBuffer, tweakedPrivateKey);
-      const signatureHex = Buffer.from(signatureRaw).toString('hex');
-      
-      return {
-        txid: coin.txid,
-        vout: coin.vout,
-        signature: asSignatureHex(signatureHex),
-      };
-    });
+    const inputs: ArkInput[] = await Promise.all(
+      selected.map(async (coin) => {
+        const signatureHex = await this.signSchnorr(txHashBuffer);
+        return {
+          txid: coin.txid,
+          vout: coin.vout,
+          signature: asSignatureHex(signatureHex),
+        };
+      })
+    );
 
     const tx: ArkTransaction = { inputs, outputs };
 
@@ -566,6 +575,162 @@ export class MockArkClient {
     localStorage.removeItem(WIF_STORAGE_KEY);
     localStorage.removeItem(VTXO_STORAGE_KEY);
     localStorage.removeItem(WATCHED_ADDRESSES_KEY);
+  }
+
+  /**
+   * Fetches global stats from the ASP
+   */
+  async getStats(): Promise<{ total: number; distribution: Record<string, number> }> {
+    const response = await fetch('http://localhost:7070/v1/assets/stats');
+    
+    if (!response.ok) {
+      throw new Error(`Failed to fetch stats: ${response.statusText}`);
+    }
+    
+    // Read response as text first to handle empty bodies gracefully
+    const text = await response.text();
+    return text ? JSON.parse(text) : { total: 0, distribution: { common: 0, rare: 0, epic: 0, legendary: 0 } };
+  }
+
+  /**
+   * Fetches the list of showcased assets from the Pond
+   */
+  async getPond(): Promise<Array<{ txid: string; metadata: AssetMetadata }>> {
+    const response = await fetch('http://localhost:7070/v1/pond');
+    
+    if (!response.ok) {
+      throw new Error(`Failed to fetch pond: ${response.statusText}`);
+    }
+    
+    // Read response as text first to handle empty bodies gracefully
+    const text = await response.text();
+    const data = text ? JSON.parse(text) : [];
+    
+    // Validate metadata for each item
+    if (!Array.isArray(data)) {
+      return [];
+    }
+    
+    return data.map((item: { txid: string; metadata: unknown }) => ({
+      txid: item.txid,
+      metadata: AssetMetadataSchema.parse(item.metadata),
+    }));
+  }
+
+  /**
+   * Signs a message for pond entry (extracted for testing)
+   * @param txid - The transaction ID to sign
+   * @returns Object containing the message and signature hex string
+   */
+  async signPondEntry(txid: TxId): Promise<{ message: string; signature: string }> {
+    const { bitcoin, ECPair, ecc } = walletTools;
+    const vtxos = this.getStorage();
+    
+    // Step 1: Find VTXO across all addresses
+    let vtxo: (Vtxo & { metadata?: AssetMetadata; assetId?: string }) | undefined;
+    for (const addr in vtxos) {
+      vtxo = vtxos[addr].find(v => v.txid === txid);
+      if (vtxo) break;
+    }
+    
+    if (!vtxo) {
+      throw new Error('VTXO not found');
+    }
+    
+    // Step 2: Create message and hash
+    const message = `Showcase ${txid}`;
+    const messageHash = bitcoin.crypto.sha256(Buffer.from(message, 'utf8'));
+    
+    // Step 3: Get keypair and prepare private key
+    const keyPair = await this.getKeyPair();
+    if (!keyPair.privateKey) {
+      throw new Error('Missing private key');
+    }
+    
+    // Prepare private key buffer (32 bytes)
+    let privateKeyBuffer = keyPair.privateKey.length === 33 
+      ? keyPair.privateKey.slice(1) 
+      : keyPair.privateKey;
+    
+    // Step 4: Handle Base Key Parity
+    // If the public key has an ODD Y-coordinate (prefix 0x03), negate the private key
+    if (keyPair.publicKey[0] === 0x03) {
+      privateKeyBuffer = Buffer.from(ecc.privateNegate(privateKeyBuffer));
+    }
+    
+    // Step 5: Apply Asset Tweak (if metadata exists)
+    let assetPubkey: Buffer | undefined;
+    if (vtxo.metadata) {
+      const assetTweak = getAssetHash(vtxo.metadata);
+      const assetPrivateKey = ecc.privateAdd(privateKeyBuffer, assetTweak);
+      if (!assetPrivateKey) {
+        throw new Error('Asset tweak failed');
+      }
+      privateKeyBuffer = Buffer.from(assetPrivateKey);
+      
+      // Step 6: Handle Asset Pubkey Parity
+      // Get the intermediate pubkey (P') to check parity
+      const tempPair = ECPair.fromPrivateKey(privateKeyBuffer);
+      assetPubkey = tempPair.publicKey;
+      
+      // If assetPubkey has odd Y-coordinate, negate the private key
+      if (assetPubkey[0] === 0x03) {
+        privateKeyBuffer = Buffer.from(ecc.privateNegate(privateKeyBuffer));
+        // Recreate pair with negated key to get updated pubkey
+        const negatedPair = ECPair.fromPrivateKey(privateKeyBuffer);
+        assetPubkey = negatedPair.publicKey;
+      }
+    }
+    
+    // Step 7: Apply BIP-86 TapTweak (Standard for P2TR)
+    // Use assetPubkey if available (from asset tweak), otherwise get from base key
+    let pPrime: Buffer;
+    if (assetPubkey) {
+      pPrime = assetPubkey.slice(1, 33);
+    } else {
+      // No asset tweak, use the base key's x-only pubkey
+      const basePair = ECPair.fromPrivateKey(privateKeyBuffer);
+      pPrime = basePair.publicKey.slice(1, 33);
+    }
+    
+    // Calculate TapTweak
+    const tapTweak = bitcoin.crypto.taggedHash('TapTweak', pPrime);
+    const finalPrivateKey = ecc.privateAdd(privateKeyBuffer, tapTweak);
+    if (!finalPrivateKey) {
+      throw new Error('Taproot tweak failed');
+    }
+    
+    // Step 8: Sign the hash
+    const signatureRaw = ecc.signSchnorr(messageHash, finalPrivateKey);
+    const signature = Buffer.from(signatureRaw).toString('hex');
+    
+    return { message, signature };
+  }
+
+  /**
+   * Enters a VTXO into the Pond by signing a proof of ownership
+   */
+  async enterPond(vtxo: Vtxo): Promise<{ success: boolean }> {
+    // Sign the message
+    const { message, signature } = await this.signPondEntry(vtxo.txid);
+    
+    // Post to /v1/pond/enter
+    const response = await fetch('http://localhost:7070/v1/pond/enter', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        txid: vtxo.txid,
+        signature,
+        message,
+      }),
+    });
+    
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ message: response.statusText }));
+      throw new Error(error.message || error.error || 'Failed to enter pond');
+    }
+    
+    return await response.json();
   }
 }
 
