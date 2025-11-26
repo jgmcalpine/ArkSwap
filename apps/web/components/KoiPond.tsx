@@ -291,11 +291,13 @@ export function KoiPond({ walletAddress, vtxos, onMint, onEnterPond }: KoiPondPr
             </div>
             <button
               onClick={() => setShowBreedingModal(true)}
+              disabled={koiAssets.length < 2}
               className={cn(
                 'flex items-center gap-2 rounded-lg border border-purple-700 bg-purple-900/20 px-4 py-2',
                 'text-sm font-medium text-purple-400 transition-colors',
                 'hover:bg-purple-900/30 hover:text-purple-300',
-                'focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 focus:ring-offset-gray-900'
+                'focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 focus:ring-offset-gray-900',
+                'disabled:cursor-not-allowed disabled:opacity-50'
               )}
             >
               Breed

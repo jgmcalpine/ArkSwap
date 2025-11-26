@@ -62,7 +62,7 @@ export const BreedingModal: FC<BreedingModalProps> = ({
   const handleBreed: MouseEventHandler<HTMLButtonElement> = async (event) => {
     event.preventDefault();
     
-    if (!selectedParent1 || !selectedParent2) {
+    if (!selectedParent1 || !selectedParent2 || isBreeding) {
       return;
     }
 
