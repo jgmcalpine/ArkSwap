@@ -12,3 +12,48 @@
   }
 }
 
+.koi-float {
+  animation: koi-float 6s ease-in-out infinite;
+}
+
+@keyframes koi-float {
+  0% {
+    transform: translateY(0px);
+  }
+  25% {
+    transform: translateY(-4px) translateX(1px);
+  }
+  50% {
+    transform: translateY(0px) translateX(0px);
+  }
+  75% {
+    transform: translateY(4px) translateX(-1px);
+  }
+  100% {
+    transform: translateY(0px);
+  }
+}
+
+.koi-swim-tail {
+  transform-origin: 50% 90%;
+  animation: koi-swim 2.4s ease-in-out infinite;
+}
+
+@keyframes koi-swim {
+  0% {
+    transform: rotate(0deg);
+  }
+  25% {
+    transform: rotate(1.5deg);
+  }
+  50% {
+    transform: rotate(0deg);
+  }
+  75% {
+    transform: rotate(-1.5deg);
+  }
+  100% {
+    transform: rotate(0deg);
+  }
+}
+

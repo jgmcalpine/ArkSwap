@@ -1,11 +1,14 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, type MouseEventHandler } from 'react';
 import { Fish, Eye, TrendingUp, Loader2 } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { mockArkClient } from '../lib/ark-client';
 import type { Vtxo, AssetMetadata } from '@arkswap/protocol';
 import { getErrorMessage } from '../lib/error-utils';
+import { parseDna, type DnaTraits, type KoiRarity } from '../hooks/useDnaParser';
+import { KoiCard } from './koi/KoiCard';
+import { KoiDetailModal } from './koi/KoiDetailModal';
 
 // Extended VTXO type that may include asset metadata
 type ExtendedVtxo = Vtxo & { metadata?: AssetMetadata };
@@ -17,6 +20,10 @@ interface KoiPondProps {
   onEnterPond?: (vtxo: ExtendedVtxo) => void;
 }
 
+type SelectedKoi =
+  | { source: 'wallet'; vtxo: ExtendedVtxo }
+  | { source: 'pond'; txid: string; metadata: AssetMetadata };
+
 export function KoiPond({ walletAddress, vtxos, onMint, onEnterPond }: KoiPondProps) {
   const [isMinting, setIsMinting] = useState(false);
   const [mintError, setMintError] = useState<string | null>(null);
@@ -27,6 +34,7 @@ export function KoiPond({ walletAddress, vtxos, onMint, onEnterPond }: KoiPondPr
   const [pondError, setPondError] = useState<string | null>(null);
   const [showPond, setShowPond] = useState(false);
   const previousAssetCountRef = useRef<number>(0);
+  const [selectedKoi, setSelectedKoi] = useState<SelectedKoi | null>(null);
 
   // Clear mint status when a new asset appears
   useEffect(() => {
@@ -114,6 +122,53 @@ export function KoiPond({ walletAddress, vtxos, onMint, onEnterPond }: KoiPondPr
     }
   };
 
+  const koiAssets: ExtendedVtxo[] = vtxos.filter((v) => v.metadata) as ExtendedVtxo[];
+
+  const getRarityForDna = (dna: string): KoiRarity => {
+    const traits = parseDna(dna);
+    return traits?.rarity ?? 'Common';
+  };
+
+  const handleOpenWalletKoi = (vtxo: ExtendedVtxo) => {
+    if (!vtxo.metadata) return;
+    setSelectedKoi({ source: 'wallet', vtxo });
+  };
+
+  const handleOpenPondKoi = (item: { txid: string; metadata: AssetMetadata }) => {
+    setSelectedKoi({ source: 'pond', txid: item.txid, metadata: item.metadata });
+  };
+
+  const handleCloseModal = () => {
+    setSelectedKoi(null);
+  };
+
+  const handleShowOffSelected: MouseEventHandler<HTMLButtonElement> = (event) => {
+    event.preventDefault();
+    if (!selectedKoi || selectedKoi.source !== 'wallet') {
+      return;
+    }
+    void handleEnterPond(selectedKoi.vtxo);
+  };
+
+  const selectedMetadata: AssetMetadata | undefined =
+    selectedKoi?.source === 'wallet'
+      ? selectedKoi.vtxo.metadata
+      : selectedKoi?.source === 'pond'
+        ? selectedKoi.metadata
+        : undefined;
+
+  const selectedDna = selectedMetadata?.dna ?? '';
+  const selectedTraits: DnaTraits | null = selectedDna ? parseDna(selectedDna) : null;
+  const selectedRarity: KoiRarity = selectedTraits?.rarity ?? 'Common';
+  const selectedTxId =
+    selectedKoi?.source === 'wallet'
+      ? selectedKoi.vtxo.txid
+      : selectedKoi?.source === 'pond'
+        ? selectedKoi.txid
+        : '';
+  const selectedGeneration = selectedMetadata?.generation ?? 0;
+  const selectedOwnerLabel = selectedKoi?.source === 'wallet' ? 'You' : 'Pond';
+
   return (
     <div className="space-y-6">
       {/* Market Status (Census) Widget */}
@@ -180,6 +235,35 @@ export function KoiPond({ walletAddress, vtxos, onMint, onEnterPond }: KoiPondPr
         </div>
       </div>
 
+      {/* Your Koi Collection */}
+      {koiAssets.length > 0 && (
+        <div className="rounded-xl border border-gray-800 bg-gray-900/50 p-6 backdrop-blur-sm">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2">
+              <Fish className="h-5 w-5 text-cyan-400" />
+              <h3 className="text-sm font-medium text-gray-400">Your Cyber-Organic Koi</h3>
+            </div>
+          </div>
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {koiAssets.map((vtxo) => {
+              if (!vtxo.metadata) return null;
+              const { dna, generation } = vtxo.metadata;
+              const rarity = getRarityForDna(dna);
+              return (
+                <KoiCard
+                  key={vtxo.txid}
+                  dna={dna}
+                  generation={generation}
+                  txid={vtxo.txid}
+                  rarity={rarity}
+                  onClick={() => handleOpenWalletKoi(vtxo)}
+                />
+              );
+            })}
+          </div>
+        </div>
+      )}
+
       {/* The Grand Pond View */}
       <div className="rounded-xl border border-gray-800 bg-gray-900/50 p-6 backdrop-blur-sm">
         <div className="flex items-center justify-between mb-4">
@@ -211,33 +295,40 @@ export function KoiPond({ walletAddress, vtxos, onMint, onEnterPond }: KoiPondPr
                 The pond is empty. Be the first to showcase your fish!
               </p>
             ) : (
-              pond.map((item) => (
-                <div
-                  key={item.txid}
-                  className="rounded-lg border border-cyan-700 bg-cyan-900/20 p-4"
-                >
-                  <div className="flex items-center gap-3">
-                    <Fish className="h-6 w-6 text-cyan-400 flex-shrink-0" />
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2">
-                        <span className="text-sm font-medium text-cyan-300">
-                          Gen {item.metadata.generation} Koi
-                        </span>
-                        <span className="text-xs text-gray-400">
-                          XP: {item.metadata.xp}
-                        </span>
-                      </div>
-                      <p className="text-xs font-mono text-gray-500 truncate mt-1">
-                        {item.txid.slice(0, 16)}...{item.txid.slice(-8)}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              ))
+              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                {pond.map((item) => {
+                  const rarity = getRarityForDna(item.metadata.dna);
+                  return (
+                    <KoiCard
+                      key={item.txid}
+                      dna={item.metadata.dna}
+                      generation={item.metadata.generation}
+                      txid={item.txid}
+                      rarity={rarity}
+                      onClick={() => handleOpenPondKoi(item)}
+                    />
+                  );
+                })}
+              </div>
             )}
           </div>
         )}
       </div>
+      <KoiDetailModal
+        open={!!selectedKoi && !!selectedMetadata && !!selectedDna}
+        onClose={handleCloseModal}
+        dna={selectedDna}
+        txid={selectedTxId}
+        generation={selectedGeneration}
+        traits={selectedTraits}
+        rarity={selectedRarity}
+        coinAgeBlocks={null}
+        ownerLabel={selectedOwnerLabel}
+        isEnteringPond={
+          selectedKoi?.source === 'wallet' ? isEnteringPond === selectedKoi.vtxo.txid : false
+        }
+        onShowOff={selectedKoi?.source === 'wallet' ? handleShowOffSelected : undefined}
+      />
     </div>
   );
 }
