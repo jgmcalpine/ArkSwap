@@ -1,10 +1,11 @@
 import { walletTools } from './crypto';
-import type { Vtxo, ArkTransaction, ArkInput, ArkOutput, Address, TxId } from '@arkswap/protocol';
-import { getTxHash, VtxoSchema, asTxId, asAddress, asSignatureHex } from '@arkswap/protocol';
+import type { Vtxo, ArkTransaction, ArkInput, ArkOutput, Address, TxId, AssetMetadata } from '@arkswap/protocol';
+import { getTxHash, VtxoSchema, AssetMetadataSchema, asTxId, asAddress, asSignatureHex, createAssetPayToPublicKey } from '@arkswap/protocol';
 import { z } from 'zod';
 
 const WIF_STORAGE_KEY = 'ark_wallet_wif';
 const VTXO_STORAGE_KEY = 'ark_vtxos';
+const WATCHED_ADDRESSES_KEY = 'ark_watched_addresses';
 
 export class MockArkClient {
   /**
@@ -17,8 +18,9 @@ export class MockArkClient {
 
   /**
    * Helper to read VTXOs from LocalStorage (only called from methods)
+   * Returns VTXOs that may have optional metadata and assetId fields
    */
-  private getStorage(): Record<string, Vtxo[]> {
+  private getStorage(): Record<string, Array<Vtxo & { metadata?: AssetMetadata; assetId?: string }>> {
     if (typeof window === 'undefined') return {};
     try {
       const stored = localStorage.getItem(VTXO_STORAGE_KEY);
@@ -31,10 +33,37 @@ export class MockArkClient {
 
   /**
    * Helper to save VTXOs to LocalStorage (only called from methods)
+   * Accepts VTXOs that may have optional metadata and assetId fields
    */
-  private setStorage(vtxos: Record<string, Vtxo[]>) {
+  private setStorage(vtxos: Record<string, Array<Vtxo & { metadata?: AssetMetadata; assetId?: string }>>) {
     if (typeof window === 'undefined') return;
     localStorage.setItem(VTXO_STORAGE_KEY, JSON.stringify(vtxos));
+  }
+
+  /**
+   * Adds an address to the watched addresses list
+   */
+  addWatchedAddress(address: string): void {
+    if (typeof window === 'undefined') return;
+    const watched = this.getWatchedAddresses();
+    if (!watched.includes(address)) {
+      watched.push(address);
+      localStorage.setItem(WATCHED_ADDRESSES_KEY, JSON.stringify(watched));
+    }
+  }
+
+  /**
+   * Gets all watched addresses
+   */
+  getWatchedAddresses(): string[] {
+    if (typeof window === 'undefined') return [];
+    try {
+      const stored = localStorage.getItem(WATCHED_ADDRESSES_KEY);
+      return stored ? JSON.parse(stored) : [];
+    } catch (e) {
+      console.error("Failed to parse watched addresses", e);
+      return [];
+    }
   }
 
   /**
@@ -121,6 +150,49 @@ export class MockArkClient {
   }
 
   /**
+   * Mints a Gen 0 Koi asset
+   * @param amount - Amount in sats to mint the asset with
+   * @returns Promise with success status, address, metadata, and status message
+   */
+  async mintGen0(amount: number): Promise<{ success: boolean; address: string; status: string; metadata: AssetMetadata }> {
+    // Get the current wallet's public key
+    const pubkeyBuffer = await this.getPublicKey();
+    
+    // Convert pubkey to hex string (64 hex characters for 32 bytes)
+    const userPubkey = pubkeyBuffer.toString('hex');
+    
+    // Call the ASP genesis endpoint
+    const response = await fetch('http://localhost:7070/v1/assets/genesis', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userPubkey, amount }),
+    });
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ message: response.statusText }));
+      throw new Error(error.message || `Failed to mint Gen 0 Koi: ${response.statusText}`);
+    }
+
+    const result = await response.json();
+    
+    // Validate and parse metadata
+    const metadata = AssetMetadataSchema.parse(result.metadata);
+    
+    // Derive the asset address using the wallet's pubkey and metadata
+    const assetAddress = createAssetPayToPublicKey(pubkeyBuffer, metadata);
+    
+    // Add the asset address to watched addresses so we can poll for it
+    this.addWatchedAddress(assetAddress);
+    
+    return {
+      success: result.success,
+      address: result.address,
+      status: result.status,
+      metadata,
+    };
+  }
+
+  /**
    * Gets the balance for an address by summing unspent VTXOs
    */
   getBalance(address: string): number {
@@ -134,8 +206,9 @@ export class MockArkClient {
 
   /**
    * Gets all unspent VTXOs for an address
+   * Returns VTXOs that may have optional metadata and assetId fields
    */
-  getVtxos(address: string): Vtxo[] {
+  getVtxos(address: string): Array<Vtxo & { metadata?: AssetMetadata; assetId?: string }> {
     const vtxos = this.getStorage();
     const addressBranded = asAddress(address);
     const addressVtxos = vtxos[address] ?? [];
@@ -258,9 +331,10 @@ export class MockArkClient {
   }
 
   /**
-   * Fetches VTXOs from the ASP and merges them into local storage
+   * Fetches VTXOs for a single address from the ASP and merges them into local storage
+   * For new VTXOs, attempts to fetch asset metadata and attach it
    */
-  async fetchFromASP(address: string): Promise<void> {
+  private async fetchAddressFromASP(address: string): Promise<void> {
     try {
       const response = await fetch(`http://localhost:7070/v1/vtxos/${address}`);
       
@@ -277,25 +351,81 @@ export class MockArkClient {
       const vtxos = this.getStorage();
       const addressVtxos = vtxos[address] ?? [];
       
-      // Merge logic: check if we already have each VTXO by txid
-      let hasNewVtxos = false;
+      // Identify new VTXOs
+      const newVtxos: Array<Vtxo & { metadata?: AssetMetadata; assetId?: string }> = [];
       for (const aspVtxo of aspVtxos) {
         const exists = addressVtxos.some(v => v.txid === aspVtxo.txid);
         if (!exists) {
-          addressVtxos.push(aspVtxo);
-          hasNewVtxos = true;
+          newVtxos.push(aspVtxo);
         }
       }
       
-      // Only save if we have new VTXOs
-      if (hasNewVtxos) {
+      // If we have new VTXOs, fetch asset metadata for each in parallel
+      if (newVtxos.length > 0) {
+        const enrichedVtxos = await Promise.all(
+          newVtxos.map(async (vtxo) => {
+            try {
+              const assetResponse = await fetch(`http://localhost:7070/v1/assets/${vtxo.txid}`);
+              
+              // Handle actual HTTP errors (500s, network issues, etc.)
+              if (!assetResponse.ok) {
+                console.warn(`[Radar] Asset fetch failed for ${vtxo.txid}: ${assetResponse.status}`);
+                return vtxo;
+              }
+              
+              // Read response as text first to handle empty bodies gracefully
+              // ASP might return empty body (Content-Length: 0) or "null" string for standard VTXOs
+              const text = await assetResponse.text();
+              const assetData = text ? JSON.parse(text) : null;
+              
+              // If null, this is a standard VTXO (not an asset) - valid state, no metadata
+              if (!assetData) {
+                return vtxo;
+              }
+              
+              // If we have data, validate and process the metadata
+              const metadata = AssetMetadataSchema.parse(assetData);
+              
+              // Use DNA as assetId (as per protocol convention)
+              return {
+                ...vtxo,
+                metadata,
+                assetId: metadata.dna,
+              };
+            } catch (error) {
+              // Network error or parse error - continue with normal VTXO
+              console.warn(`[Radar] Error fetching asset metadata for ${vtxo.txid}:`, error);
+              return vtxo;
+            }
+          })
+        );
+        
+        // Add enriched VTXOs to storage
+        addressVtxos.push(...enrichedVtxos);
         vtxos[address] = addressVtxos;
         this.setStorage(vtxos);
       }
     } catch (error) {
       // Silently fail if ASP is not available
-      console.error('Failed to fetch from ASP:', error);
+      console.error(`Failed to fetch from ASP for address ${address}:`, error);
     }
+  }
+
+  /**
+   * Fetches VTXOs from the ASP for the main address and all watched addresses
+   * For new VTXOs, attempts to fetch asset metadata and attach it
+   */
+  async fetchFromASP(mainAddress: string): Promise<void> {
+    // Build list of addresses to poll: main address + all watched addresses
+    const addressesToPoll = [mainAddress, ...this.getWatchedAddresses()];
+    
+    // Remove duplicates
+    const uniqueAddresses = Array.from(new Set(addressesToPoll));
+    
+    // Fetch VTXOs for all addresses in parallel
+    await Promise.all(
+      uniqueAddresses.map(address => this.fetchAddressFromASP(address))
+    );
   }
 
   /**
@@ -428,13 +558,14 @@ export class MockArkClient {
   }
 
   /**
-   * Clears all wallet data from localStorage (WIF and VTXOs)
+   * Clears all wallet data from localStorage (WIF, VTXOs, and watched addresses)
    * Used when disconnecting a wallet
    */
   clearWallet(): void {
     if (typeof window === 'undefined') return;
     localStorage.removeItem(WIF_STORAGE_KEY);
     localStorage.removeItem(VTXO_STORAGE_KEY);
+    localStorage.removeItem(WATCHED_ADDRESSES_KEY);
   }
 }
 

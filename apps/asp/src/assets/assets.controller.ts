@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Param, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Controller, Get, Post, Body, Param, BadRequestException } from '@nestjs/common';
 import { randomBytes } from 'crypto';
 import { AssetStore } from './asset.store';
 import { RoundService } from '../round.service';
@@ -32,12 +32,10 @@ export class AssetsController {
   }
 
   @Get(':txid')
-  getMetadata(@Param('txid') txid: string): AssetMetadata {
+  getMetadata(@Param('txid') txid: string): AssetMetadata | null {
     const metadata = this.store.getMetadata(txid);
-    if (!metadata) {
-      throw new NotFoundException(`Asset metadata not found for txid: ${txid}`);
-    }
-    return metadata;
+    // Return null (200 OK) instead of 404 - "not an asset" is a valid state for a VTXO
+    return metadata || null;
   }
 
   @Post()
@@ -66,7 +64,7 @@ export class AssetsController {
   }
 
   @Post('genesis')
-  genesis(@Body() body: GenesisRequestDto): { success: boolean; address: string; status: string } {
+  genesis(@Body() body: GenesisRequestDto): { success: boolean; address: string; status: string; metadata: AssetMetadata } {
     const { userPubkey, amount } = body;
 
     if (!userPubkey || typeof amount !== 'number' || amount <= 0) {
@@ -104,10 +102,12 @@ export class AssetsController {
       // 5. Minting: Call RoundService.scheduleLift to create the VTXO with this specific address and metadata
       this.roundService.scheduleLift(address, amount, metadata);
 
+      // 6. Return metadata so client can derive the address and watch it
       return {
         success: true,
         address,
         status: 'queued',
+        metadata,
       };
     } catch (error) {
       if (error instanceof BadRequestException) {

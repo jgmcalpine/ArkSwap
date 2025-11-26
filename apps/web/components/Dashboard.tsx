@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useWallet } from '../context/WalletContext';
-import { Coins, Droplets, ArrowRightLeft, Loader2, CheckCircle2 } from 'lucide-react';
+import { Coins, Droplets, ArrowRightLeft, Loader2, CheckCircle2, Fish } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { requestFaucet, requestSwapQuote, commitSwap, getBitcoinInfo, type SwapQuoteResponse } from '../lib/api';
 import { mockArkClient } from '../lib/ark-client';
@@ -40,6 +40,9 @@ export function Dashboard() {
   const l1AddressInputRef = useRef<HTMLInputElement | null>(null);
   const [loadingText, setLoadingText] = useState<string | null>(null);
   const hasLoadedSessionRef = useRef<boolean>(false);
+  const [isMinting, setIsMinting] = useState(false);
+  const [mintError, setMintError] = useState<string | null>(null);
+  const [mintStatus, setMintStatus] = useState<string | null>(null);
 
   // React Query for bitcoin info (used in pendingRefund step)
   const { data: bitcoinInfo } = useQuery({
@@ -123,6 +126,18 @@ export function Dashboard() {
     previousBalanceRef.current = balance;
   }, [balance, liftStatus]);
 
+  // Clear mint status when a new asset appears (checking for VTXOs with metadata)
+  // Also track previous count to detect new assets
+  const previousAssetCountRef = useRef<number>(0);
+  useEffect(() => {
+    const currentAssetCount = vtxos.filter(v => v.metadata).length;
+    // If we have more assets than before and there's a mint status, clear it
+    if (currentAssetCount > previousAssetCountRef.current && mintStatus) {
+      setMintStatus(null);
+    }
+    previousAssetCountRef.current = currentAssetCount;
+  }, [vtxos, mintStatus]);
+
   const handleFaucet = async () => {
     if (!address) return;
     
@@ -144,6 +159,30 @@ export function Dashboard() {
       setFaucetError(getErrorMessage(error));
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleMint = async () => {
+    if (!address) return;
+    
+    setIsMinting(true);
+    setMintError(null);
+    setMintStatus(null);
+    try {
+      // Call the mint endpoint
+      await mockArkClient.mintGen0(1000);
+      
+      // Show status message
+      setMintStatus('Fish sent to pool. Waiting for Round...');
+      
+      // Note: The fish will appear in the wallet automatically when the Round finalizes
+      // and the poller fetches the new coin (every 5 seconds)
+      
+    } catch (error) {
+      console.error("Mint failed", error);
+      setMintError(getErrorMessage(error));
+    } finally {
+      setIsMinting(false);
     }
   };
 
@@ -482,6 +521,39 @@ export function Dashboard() {
           </div>
         </div>
 
+        {/* SatoshiKoi Pond Card */}
+        <div className="rounded-xl border border-gray-800 bg-gray-900/50 p-6 backdrop-blur-sm">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+            <div className="flex-1 min-w-0">
+              <h3 className="text-sm font-medium text-gray-400">SatoshiKoi Pond</h3>
+              <p className="mt-1 text-sm text-gray-500">
+                Mint a Gen 0 Koi that will appear in your wallet after the next Round (5 seconds)
+              </p>
+              {mintStatus && (
+                <p className="mt-2 text-sm text-cyan-400 break-words">{mintStatus}</p>
+              )}
+              {mintError && (
+                <p className="mt-2 text-sm text-red-400 break-words">{mintError}</p>
+              )}
+            </div>
+            <button
+              onClick={handleMint}
+              disabled={isMinting}
+              className={cn(
+                'flex items-center gap-2 rounded-lg border border-cyan-700 bg-cyan-900/20 px-4 py-2',
+                'text-sm font-medium text-cyan-400 transition-colors',
+                'hover:bg-cyan-900/30 hover:text-cyan-300',
+                'focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:ring-offset-2 focus:ring-offset-gray-900',
+                'disabled:cursor-not-allowed disabled:opacity-50',
+                'w-full sm:w-auto flex-shrink-0'
+              )}
+            >
+              <Fish className="h-4 w-4" />
+              {isMinting ? 'Minting...' : 'Mint Gen 0 Fish (1000 sats)'}
+            </button>
+          </div>
+        </div>
+
         {/* Swap Quote Card */}
         <div className="rounded-xl border border-gray-800 bg-gray-900/50 p-6 backdrop-blur-sm">
           <div className="space-y-4">
@@ -554,76 +626,135 @@ export function Dashboard() {
                 )}
                 
                 {/* Coin Control UI */}
-                {vtxos.length > 0 && (
-                  <div className="space-y-3">
-                    <div className="flex items-center justify-between">
-                      <h4 className="text-sm font-medium text-gray-400">Available Coins</h4>
-                      {isManualSelection && (
-                        <button
-                          onClick={() => {
-                            setIsManualSelection(false);
-                            const amount = parseFloat(swapAmount);
-                            if (!isNaN(amount) && amount > 0 && address) {
-                              const selected = mockArkClient.selectCoins(address, amount);
-                              setSelectedVtxos(selected.map(v => v.txid));
-                            }
-                          }}
-                          className="text-xs text-blue-400 hover:text-blue-300"
-                        >
-                          Reset to Auto-Select
-                        </button>
+                {vtxos.length > 0 && (() => {
+                  // Separate VTXOs into assets and standard
+                  const assetVtxos = vtxos.filter(v => v.metadata);
+                  const standardVtxos = vtxos.filter(v => !v.metadata);
+                  
+                  const renderVtxo = (vtxo: typeof vtxos[0]) => {
+                    const isSelected = selectedVtxos.includes(vtxo.txid);
+                    const isAsset = !!vtxo.metadata;
+                    
+                    return (
+                      <button
+                        key={vtxo.txid}
+                        type="button"
+                        onClick={() => toggleVtxo(vtxo.txid)}
+                        className={cn(
+                          'w-full flex items-center justify-between rounded-lg border p-3 text-left',
+                          'transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500',
+                          isSelected
+                            ? isAsset
+                              ? 'border-cyan-500 bg-cyan-500/10'
+                              : 'border-green-500 bg-green-500/10'
+                            : isAsset
+                              ? 'border-cyan-700 bg-cyan-900/20 hover:bg-cyan-900/30'
+                              : 'border-gray-700 bg-gray-800/50 hover:bg-gray-800'
+                        )}
+                      >
+                        <div className="flex items-center gap-3 flex-1 min-w-0">
+                          {isAsset ? (
+                            <Fish className="h-5 w-5 text-cyan-400 flex-shrink-0" />
+                          ) : (
+                            <Coins className="h-5 w-5 text-gray-400 flex-shrink-0" />
+                          )}
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2">
+                              <span className="text-sm font-medium text-gray-300">
+                                {vtxo.amount.toLocaleString()} sats
+                              </span>
+                              {isAsset && vtxo.metadata && (
+                                <span className="text-xs text-cyan-400 font-medium">
+                                  Gen {vtxo.metadata.generation} Koi
+                                </span>
+                              )}
+                              {!isAsset && (
+                                <span className="text-xs text-gray-500 font-medium">
+                                  Standard VTXO
+                                </span>
+                              )}
+                              {isSelected && (
+                                <CheckCircle2 className="h-4 w-4 text-green-400 flex-shrink-0 ml-auto" />
+                              )}
+                            </div>
+                            <p className="text-xs font-mono text-gray-500 truncate mt-1">
+                              {vtxo.txid.slice(0, 16)}...{vtxo.txid.slice(-8)}
+                            </p>
+                          </div>
+                        </div>
+                      </button>
+                    );
+                  };
+                  
+                  return (
+                    <div className="space-y-4">
+                      <div className="flex items-center justify-between">
+                        <h4 className="text-sm font-medium text-gray-400">Available Coins</h4>
+                        {isManualSelection && (
+                          <button
+                            onClick={() => {
+                              setIsManualSelection(false);
+                              const amount = parseFloat(swapAmount);
+                              if (!isNaN(amount) && amount > 0 && address) {
+                                const selected = mockArkClient.selectCoins(address, amount);
+                                setSelectedVtxos(selected.map(v => v.txid));
+                              }
+                            }}
+                            className="text-xs text-blue-400 hover:text-blue-300"
+                          >
+                            Reset to Auto-Select
+                          </button>
+                        )}
+                      </div>
+                      
+                      {/* Asset VTXOs Section */}
+                      {assetVtxos.length > 0 && (
+                        <div className="space-y-2">
+                          <div className="flex items-center gap-2 pb-2 border-b border-cyan-800/50">
+                            <Fish className="h-4 w-4 text-cyan-400" />
+                            <h5 className="text-xs font-semibold text-cyan-400 uppercase tracking-wide">
+                              Assets ({assetVtxos.length})
+                            </h5>
+                          </div>
+                          <div className="space-y-2 max-h-48 overflow-y-auto">
+                            {assetVtxos.map(renderVtxo)}
+                          </div>
+                        </div>
+                      )}
+                      
+                      {/* Standard VTXOs Section */}
+                      {standardVtxos.length > 0 && (
+                        <div className="space-y-2">
+                          <div className="flex items-center gap-2 pb-2 border-b border-gray-700/50">
+                            <Coins className="h-4 w-4 text-gray-400" />
+                            <h5 className="text-xs font-semibold text-gray-400 uppercase tracking-wide">
+                              Standard VTXOs ({standardVtxos.length})
+                            </h5>
+                          </div>
+                          <div className="space-y-2 max-h-48 overflow-y-auto">
+                            {standardVtxos.map(renderVtxo)}
+                          </div>
+                        </div>
+                      )}
+                      
+                      {selectedVtxos.length > 0 && (
+                        <div className="rounded-lg border border-gray-700 bg-gray-800/50 p-3">
+                          <p className="text-xs text-gray-400">
+                            Selected: <span className="font-medium text-gray-300">{selectedTotal.toLocaleString()}</span> sats
+                            {requiredAmount > 0 && (
+                              <span className={cn(
+                                'ml-2',
+                                hasInsufficientFunds ? 'text-yellow-400' : 'text-green-400'
+                              )}>
+                                ({selectedTotal >= requiredAmount ? '✓' : '✗'} {requiredAmount.toLocaleString()} required)
+                              </span>
+                            )}
+                          </p>
+                        </div>
                       )}
                     </div>
-                    <div className="space-y-2 max-h-64 overflow-y-auto">
-                      {vtxos.map((vtxo) => {
-                        const isSelected = selectedVtxos.includes(vtxo.txid);
-                        return (
-                          <button
-                            key={vtxo.txid}
-                            type="button"
-                            onClick={() => toggleVtxo(vtxo.txid)}
-                            className={cn(
-                              'w-full flex items-center justify-between rounded-lg border p-3 text-left',
-                              'transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500',
-                              isSelected
-                                ? 'border-green-500 bg-green-500/10'
-                                : 'border-gray-700 bg-gray-800/50 hover:bg-gray-800'
-                            )}
-                          >
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-center gap-2">
-                                <span className="text-sm font-medium text-gray-300">
-                                  {vtxo.amount.toLocaleString()} sats
-                                </span>
-                                {isSelected && (
-                                  <CheckCircle2 className="h-4 w-4 text-green-400 flex-shrink-0" />
-                                )}
-                              </div>
-                              <p className="text-xs font-mono text-gray-500 truncate mt-1">
-                                {vtxo.txid.slice(0, 16)}...{vtxo.txid.slice(-8)}
-                              </p>
-                            </div>
-                          </button>
-                        );
-                      })}
-                    </div>
-                    {selectedVtxos.length > 0 && (
-                      <div className="rounded-lg border border-gray-700 bg-gray-800/50 p-3">
-                        <p className="text-xs text-gray-400">
-                          Selected: <span className="font-medium text-gray-300">{selectedTotal.toLocaleString()}</span> sats
-                          {requiredAmount > 0 && (
-                            <span className={cn(
-                              'ml-2',
-                              hasInsufficientFunds ? 'text-yellow-400' : 'text-green-400'
-                            )}>
-                              ({selectedTotal >= requiredAmount ? '✓' : '✗'} {requiredAmount.toLocaleString()} required)
-                            </span>
-                          )}
-                        </p>
-                      </div>
-                    )}
-                  </div>
-                )}
+                  );
+                })()}
                 {lockAddress && quote && (
                   <div className="space-y-4">
                     <div className="rounded-lg border border-gray-700 bg-gray-800/50 p-4 overflow-hidden">

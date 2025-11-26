@@ -3,12 +3,15 @@
 import { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { mockArkClient } from '../lib/ark-client';
-import type { Vtxo } from '@arkswap/protocol';
+import type { Vtxo, AssetMetadata } from '@arkswap/protocol';
+
+// Extended VTXO type that may include asset metadata
+type ExtendedVtxo = Vtxo & { metadata?: AssetMetadata; assetId?: string };
 
 interface WalletContextType {
   address: string | null;
   balance: number;
-  vtxos: Vtxo[];
+  vtxos: ExtendedVtxo[];
   isConnected: boolean;
   isLoading: boolean;
   connect: () => Promise<void>;
@@ -66,9 +69,23 @@ export function WalletProvider({ children }: { children: ReactNode }) {
         return { balance: 0, vtxos: [] };
       }
       await mockArkClient.fetchFromASP(address);
+      
+      // Get VTXOs from main address
+      const mainVtxos = mockArkClient.getVtxos(address);
+      
+      // Get VTXOs from all watched addresses (asset addresses)
+      const watchedAddresses = mockArkClient.getWatchedAddresses();
+      const watchedVtxos = watchedAddresses.flatMap(addr => mockArkClient.getVtxos(addr));
+      
+      // Combine all VTXOs (main + watched)
+      const allVtxos = [...mainVtxos, ...watchedVtxos];
+      
+      // Calculate total balance from main address
+      const balance = mockArkClient.getBalance(address);
+      
       return {
-        balance: mockArkClient.getBalance(address),
-        vtxos: mockArkClient.getVtxos(address),
+        balance,
+        vtxos: allVtxos,
       };
     },
     refetchInterval: 5000,
