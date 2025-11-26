@@ -1,10 +1,13 @@
 'use client';
 
+import { useState, useEffect } from 'react';
 import type { FC, MouseEventHandler } from 'react';
 import { X } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { KoiRenderer } from './KoiRenderer';
 import type { DnaTraits, KoiRarity } from '../../hooks/useDnaParser';
+import type { AssetMetadata } from '@arkswap/protocol';
+import { getErrorMessage } from '../../lib/error-utils';
 
 export interface KoiDetailModalProps {
   readonly open: boolean;
@@ -19,6 +22,10 @@ export interface KoiDetailModalProps {
   readonly showOffLabel?: string;
   readonly isEnteringPond?: boolean;
   readonly onShowOff?: MouseEventHandler<HTMLButtonElement>;
+  readonly metadata?: AssetMetadata;
+  readonly currentBlock?: number | null;
+  readonly onFeed?: MouseEventHandler<HTMLButtonElement>;
+  readonly isFeeding?: boolean;
 }
 
 export const KoiDetailModal: FC<KoiDetailModalProps> = ({
@@ -34,7 +41,34 @@ export const KoiDetailModal: FC<KoiDetailModalProps> = ({
   showOffLabel = 'Show Off',
   isEnteringPond = false,
   onShowOff,
+  metadata,
+  currentBlock,
+  onFeed,
+  isFeeding = false,
 }) => {
+  const [feedError, setFeedError] = useState<string | null>(null);
+
+  // Clear error when modal opens/closes
+  useEffect(() => {
+    if (open) {
+      setFeedError(null);
+    }
+  }, [open]);
+
+  // Wrap onFeed to catch errors
+  const handleFeed: MouseEventHandler<HTMLButtonElement> = async (event) => {
+    if (!onFeed) return;
+    
+    // Clear any previous error
+    setFeedError(null);
+    
+    try {
+      await onFeed(event);
+    } catch (err) {
+      setFeedError(getErrorMessage(err));
+    }
+  };
+
   if (!open) {
     return null;
   }
@@ -52,6 +86,26 @@ export const KoiDetailModal: FC<KoiDetailModalProps> = ({
   ];
 
   const displayDna = dna.trim().toLowerCase().replace(/^0x/, '').padEnd(64, '0').slice(0, 64);
+
+  // Calculate blocks since last fed (Growth Cycle)
+  // Logic check: blocksSinceFed = currentBlock - lastFedBlock
+  const blocksSince = (currentBlock || 0) - (metadata?.lastFedBlock || 0);
+  const blocksSinceFedValid = metadata?.lastFedBlock != null && currentBlock != null
+    ? blocksSince
+    : null;
+  
+  // Calculate hibernation status
+  const isHibernating = blocksSinceFedValid != null && blocksSinceFedValid > 144;
+  const hibernationStatus = blocksSinceFedValid != null
+    ? (isHibernating ? 'Hibernating 💤' : 'Growing 🌿')
+    : null;
+
+  // Calculate feeding cooldown (72 blocks = 12 hours, allows 2 feeds per 144-block "Bitcoin Day")
+  const cooldown = 72;
+  const isDigesting = metadata?.lastFedBlock != null && currentBlock != null
+    ? blocksSince < cooldown
+    : false;
+  const blocksUntilFeed = isDigesting ? Math.max(0, cooldown - blocksSince) : 0;
 
   return (
     <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/60 backdrop-blur-sm px-4 py-6">
@@ -146,6 +200,14 @@ export const KoiDetailModal: FC<KoiDetailModalProps> = ({
                       {traits?.rarity ?? rarity}
                     </span>
                   </div>
+                  {metadata && (
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-gray-500">XP</span>
+                      <span className="font-medium text-cyan-200">
+                        {metadata.xp}
+                      </span>
+                    </div>
+                  )}
                   <div className="flex items-center justify-between gap-2">
                     <span className="text-gray-500">Symmetry</span>
                     <span className="font-medium text-gray-100">
@@ -171,16 +233,38 @@ export const KoiDetailModal: FC<KoiDetailModalProps> = ({
                   On-Chain Telemetry
                 </p>
                 <div className="space-y-1.5 rounded-lg border border-gray-800 bg-gray-950/40 p-3 text-xs text-gray-300">
+                  {/* Debug info - temporary */}
+                  {metadata && (
+                    <div className="pb-1 border-b border-gray-800">
+                      <small className="text-[10px] text-gray-500 font-mono">
+                        Height: {currentBlock ?? 'N/A'} | LastFed: {metadata.lastFedBlock ?? 'N/A'}
+                      </small>
+                    </div>
+                  )}
                   <div>
                     <p className="text-gray-500">TxID</p>
                     <p className="font-mono text-[11px] text-cyan-300">{truncatedTxid}</p>
                   </div>
-                  <div className="flex items-center justify-between gap-2 pt-1">
-                    <span className="text-gray-500">Coin Age</span>
-                    <span className="font-medium text-gray-100">
-                      {coinAgeBlocks != null ? `${coinAgeBlocks} blocks` : 'Simulated'}
-                    </span>
-                  </div>
+                  {blocksSinceFedValid != null && (
+                    <div className="flex items-center justify-between gap-2 pt-1">
+                      <span className="text-gray-500">Growth Cycle</span>
+                      <span className="font-medium text-gray-100">
+                        {blocksSinceFedValid} blocks
+                      </span>
+                    </div>
+                  )}
+                  {hibernationStatus && (
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-gray-500">Status</span>
+                      <span className={cn(
+                        'font-medium',
+                        isHibernating ? 'text-red-400' : 'text-green-400'
+                      )}>
+                        {hibernationStatus}
+                        {blocksSinceFedValid != null && ` (${blocksSinceFedValid} blocks)`}
+                      </span>
+                    </div>
+                  )}
                   <div className="flex items-center justify-between gap-2">
                     <span className="text-gray-500">Owner</span>
                     <span className="font-medium text-gray-100">{ownerLabel}</span>
@@ -189,8 +273,41 @@ export const KoiDetailModal: FC<KoiDetailModalProps> = ({
               </div>
             </div>
 
-            {onShowOff && (
-              <div className="pt-1">
+            <div className="flex flex-col gap-2 pt-1">
+              {onFeed && (
+                <>
+                  <button
+                    type="button"
+                    onClick={handleFeed}
+                    disabled={isFeeding || ((currentBlock || 0) - (metadata?.lastFedBlock || 0) < 72)}
+                    className={cn(
+                      'inline-flex w-full items-center justify-center gap-2 rounded-lg border px-4 py-2 text-sm font-medium',
+                      'border-green-600 bg-green-700/20 text-green-100',
+                      'hover:bg-green-600/30 hover:text-white',
+                      'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-500 focus-visible:ring-offset-2 focus-visible:ring-offset-gray-950',
+                      'disabled:cursor-not-allowed disabled:opacity-60'
+                    )}
+                  >
+                    {isFeeding 
+                      ? 'Feeding…' 
+                      : isDigesting 
+                        ? `Digesting (${blocksUntilFeed} blocks)` 
+                        : 'Feed'}
+                  </button>
+                  {feedError && (
+                    <p className="text-xs text-red-400 mt-2">{feedError}</p>
+                  )}
+                  {metadata && (
+                    <div className="mt-4 p-2 bg-gray-900 rounded text-xs font-mono text-gray-500">
+                      <p>Chain Height: {currentBlock}</p>
+                      <p>Last Fed: {metadata.lastFedBlock}</p>
+                      <p>Hunger: {(currentBlock || 0) - (metadata.lastFedBlock || 0)}</p>
+                      <p>Cooldown: 72</p>
+                    </div>
+                  )}
+                </>
+              )}
+              {onShowOff && (
                 <button
                   type="button"
                   onClick={onShowOff}
@@ -205,8 +322,8 @@ export const KoiDetailModal: FC<KoiDetailModalProps> = ({
                 >
                   {isEnteringPond ? 'Submitting to Pond…' : showOffLabel}
                 </button>
-              </div>
-            )}
+              )}
+            </div>
           </div>
         </div>
       </div>

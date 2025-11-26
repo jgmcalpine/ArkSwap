@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { HttpModule } from '@nestjs/axios';
 import { ScheduleModule } from '@nestjs/schedule';
 import { RoundService } from './round.service';
 import { InfoController } from './info.controller';
@@ -9,11 +10,12 @@ import { TransferService } from './transfer.service';
 import { AssetStore } from './assets/asset.store';
 import { AssetsController } from './assets/assets.controller';
 import { PondController } from './pond/pond.controller';
+import { BitcoinService } from './bitcoin/bitcoin.service';
 
 @Module({
-  imports: [ScheduleModule.forRoot()],
+  imports: [ScheduleModule.forRoot(), HttpModule],
   controllers: [InfoController, LiftController, TransferController, AssetsController, PondController],
-  providers: [RoundService, VtxoStore, TransferService, AssetStore],
+  providers: [RoundService, VtxoStore, TransferService, AssetStore, BitcoinService],
 })
 export class AppModule {}
 

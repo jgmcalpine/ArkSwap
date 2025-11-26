@@ -146,17 +146,29 @@ export function getRefundWitness(
 
 /**
  * Computes a deterministic SHA256 hash of Asset Metadata
+ * Only includes immutable fields that define the asset's identity:
+ * - dna: The genetic code
+ * - generation: The generation number
+ * - cooldownBlock: The cooldown block (set at creation)
+ * - parents: Lineage tracking
+ * 
+ * Explicitly excludes mutable fields:
+ * - xp: Changes when feeding
+ * - lastFedBlock: Changes when feeding
+ * - assetId: Not part of core identity (if present)
+ * 
  * Uses fast-json-stable-stringify to ensure consistent key ordering
  * Normalizes parents field: undefined -> [] to ensure consistent hashing
  */
 export function getAssetHash(metadata: AssetMetadata): Buffer {
-  // Normalize parents: undefined -> [] to ensure consistent hashing
-  // This prevents { parents: undefined } and { parents: [] } from producing different hashes
-  const normalizedMetadata: AssetMetadata = {
-    ...metadata,
-    parents: metadata.parents ?? [],
+  // Create sanitized object with only immutable fields
+  const immutableMetadata = {
+    dna: metadata.dna,
+    generation: metadata.generation,
+    cooldownBlock: metadata.cooldownBlock,
+    parents: metadata.parents ?? [], // Normalize undefined -> [] for consistent hashing
   };
-  const serialized = stringify(normalizedMetadata);
+  const serialized = stringify(immutableMetadata);
   return bitcoin.crypto.sha256(Buffer.from(serialized, 'utf8'));
 }
 

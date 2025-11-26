@@ -92,5 +92,37 @@ export class AssetStore {
     
     return pondAssets;
   }
+
+  /**
+   * Feeds an asset, updating lastFedBlock and incrementing XP
+   * Enforces 72-block cooldown (12-hour "Bitcoin Day" allows 2 feeds)
+   * @param txid - The transaction ID of the asset
+   * @param currentBlock - The current block height
+   * @returns The updated metadata
+   * @throws Error if asset not found or cooldown not met
+   */
+  feedAsset(txid: string, currentBlock: number): AssetMetadata {
+    const metadata = this.metadata.get(txid);
+    if (!metadata) {
+      throw new Error(`Asset not found: ${txid}`);
+    }
+
+    // Enforce 72-block cooldown (allows 2 feeds per 144-block "Bitcoin Day")
+    // Check if enough blocks have passed since last feed
+    const diff = currentBlock - metadata.lastFedBlock;
+    if (diff < 72) {
+      throw new Error(`Digesting. Block Age: ${diff}. Required: 72. Current: ${currentBlock}, Last: ${metadata.lastFedBlock}`);
+    }
+
+    // Update lastFedBlock and increment XP by 10 (Daily growth bonus)
+    const updatedMetadata: AssetMetadata = {
+      ...metadata,
+      lastFedBlock: currentBlock,
+      xp: metadata.xp + 10,
+    };
+
+    this.metadata.set(txid, updatedMetadata);
+    return updatedMetadata;
+  }
 }
 

@@ -1,12 +1,14 @@
 'use client';
 
 import { useState, useEffect, useRef, type MouseEventHandler } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { Fish, Eye, TrendingUp, Loader2 } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { mockArkClient } from '../lib/ark-client';
 import type { Vtxo, AssetMetadata } from '@arkswap/protocol';
 import { getErrorMessage } from '../lib/error-utils';
 import { parseDna, type DnaTraits, type KoiRarity } from '../hooks/useDnaParser';
+import { getBitcoinInfo } from '../lib/api';
 import { KoiCard } from './koi/KoiCard';
 import { KoiDetailModal } from './koi/KoiDetailModal';
 
@@ -35,6 +37,16 @@ export function KoiPond({ walletAddress, vtxos, onMint, onEnterPond }: KoiPondPr
   const [showPond, setShowPond] = useState(false);
   const previousAssetCountRef = useRef<number>(0);
   const [selectedKoi, setSelectedKoi] = useState<SelectedKoi | null>(null);
+  const [isFeeding, setIsFeeding] = useState<string | null>(null);
+
+  // Poll Bitcoin blockchain height every 5 seconds
+  const { data: bitcoinInfo } = useQuery({
+    queryKey: ['bitcoin-info'],
+    queryFn: getBitcoinInfo,
+    refetchInterval: 5000,
+  });
+
+  const currentBlock = bitcoinInfo?.blocks ?? null;
 
   // Clear mint status when a new asset appears
   useEffect(() => {
@@ -78,6 +90,7 @@ export function KoiPond({ walletAddress, vtxos, onMint, onEnterPond }: KoiPondPr
     const interval = setInterval(fetchPond, 5000); // Refresh every 5 seconds
     return () => clearInterval(interval);
   }, [showPond]);
+
 
   const handleMint = async () => {
     if (!walletAddress) return;
@@ -148,6 +161,37 @@ export function KoiPond({ walletAddress, vtxos, onMint, onEnterPond }: KoiPondPr
       return;
     }
     void handleEnterPond(selectedKoi.vtxo);
+  };
+
+  const handleFeedSelected: MouseEventHandler<HTMLButtonElement> = async (event) => {
+    event.preventDefault();
+    if (!selectedKoi || selectedKoi.source !== 'wallet' || !selectedKoi.vtxo.metadata) {
+      return;
+    }
+
+    setIsFeeding(selectedKoi.vtxo.txid);
+    try {
+      const result = await mockArkClient.feedKoi(selectedKoi.vtxo);
+      // Update the selected koi's metadata
+      if (selectedKoi.source === 'wallet') {
+        setSelectedKoi({
+          ...selectedKoi,
+          vtxo: {
+            ...selectedKoi.vtxo,
+            metadata: result.metadata,
+          },
+        });
+      }
+      // Refresh stats
+      const statsData = await mockArkClient.getStats();
+      setStats(statsData);
+    } catch (error) {
+      console.error('Failed to feed Koi:', error);
+      // Re-throw error so modal can display it
+      throw error;
+    } finally {
+      setIsFeeding(null);
+    }
   };
 
   const selectedMetadata: AssetMetadata | undefined =
@@ -328,6 +372,12 @@ export function KoiPond({ walletAddress, vtxos, onMint, onEnterPond }: KoiPondPr
           selectedKoi?.source === 'wallet' ? isEnteringPond === selectedKoi.vtxo.txid : false
         }
         onShowOff={selectedKoi?.source === 'wallet' ? handleShowOffSelected : undefined}
+        metadata={selectedMetadata}
+        currentBlock={currentBlock}
+        onFeed={selectedKoi?.source === 'wallet' ? handleFeedSelected : undefined}
+        isFeeding={
+          selectedKoi?.source === 'wallet' ? isFeeding === selectedKoi.vtxo.txid : false
+        }
       />
     </div>
   );

@@ -669,6 +669,19 @@ export class MockArkClient {
   }
 
   /**
+   * Fetches ASP info including current block height
+   */
+  async getInfo(): Promise<{ pubkey: string; roundInterval: number; network: string; currentBlock: number }> {
+    const response = await fetch('http://localhost:7070/v1/info');
+    
+    if (!response.ok) {
+      throw new Error(`Failed to fetch info: ${response.statusText}`);
+    }
+    
+    return await response.json();
+  }
+
+  /**
    * Signs a message for pond entry (extracted for testing)
    * @param txid - The transaction ID to sign
    * @returns Object containing the message and signature hex string
@@ -782,6 +795,140 @@ export class MockArkClient {
     }
     
     return await response.json();
+  }
+
+  /**
+   * Signs a message for feeding a Koi (reuses signPondEntry logic with different message)
+   * @param txid - The transaction ID to sign
+   * @returns Object containing the message and signature hex string
+   */
+  async signFeedMessage(txid: TxId): Promise<{ message: string; signature: string }> {
+    const { bitcoin, ECPair, ecc } = walletTools;
+    const vtxos = this.getStorage();
+    
+    // Step 1: Find VTXO across all addresses
+    let vtxo: (Vtxo & { metadata?: AssetMetadata; assetId?: string }) | undefined;
+    for (const addr in vtxos) {
+      vtxo = vtxos[addr].find(v => v.txid === txid);
+      if (vtxo) break;
+    }
+    
+    if (!vtxo) {
+      throw new Error('VTXO not found');
+    }
+    
+    // Step 2: Create message and hash (different message format for feeding)
+    const message = `Feed ${txid}`;
+    const messageHash = bitcoin.crypto.sha256(Buffer.from(message, 'utf8'));
+    
+    // Step 3: Get keypair and prepare private key
+    const keyPair = await this.getKeyPair();
+    if (!keyPair.privateKey) {
+      throw new Error('Missing private key');
+    }
+    
+    // Prepare private key buffer (32 bytes)
+    let privateKeyBuffer = keyPair.privateKey.length === 33 
+      ? keyPair.privateKey.slice(1) 
+      : keyPair.privateKey;
+    
+    // Step 4: Handle Base Key Parity
+    // If the public key has an ODD Y-coordinate (prefix 0x03), negate the private key
+    if (keyPair.publicKey[0] === 0x03) {
+      privateKeyBuffer = Buffer.from(ecc.privateNegate(privateKeyBuffer));
+    }
+    
+    // Step 5: Apply Asset Tweak (if metadata exists)
+    let assetPubkey: Buffer | undefined;
+    if (vtxo.metadata) {
+      const assetTweak = getAssetHash(vtxo.metadata);
+      const assetPrivateKey = ecc.privateAdd(privateKeyBuffer, assetTweak);
+      if (!assetPrivateKey) {
+        throw new Error('Asset tweak failed');
+      }
+      privateKeyBuffer = Buffer.from(assetPrivateKey);
+      
+      // Step 6: Handle Asset Pubkey Parity
+      // Get the intermediate pubkey (P') to check parity
+      const tempPair = ECPair.fromPrivateKey(privateKeyBuffer);
+      assetPubkey = tempPair.publicKey;
+      
+      // If assetPubkey has odd Y-coordinate, negate the private key
+      if (assetPubkey[0] === 0x03) {
+        privateKeyBuffer = Buffer.from(ecc.privateNegate(privateKeyBuffer));
+        // Recreate pair with negated key to get updated pubkey
+        const negatedPair = ECPair.fromPrivateKey(privateKeyBuffer);
+        assetPubkey = negatedPair.publicKey;
+      }
+    }
+    
+    // Step 7: Apply BIP-86 TapTweak (Standard for P2TR)
+    // Use assetPubkey if available (from asset tweak), otherwise get from base key
+    let pPrime: Buffer;
+    if (assetPubkey) {
+      pPrime = assetPubkey.slice(1, 33);
+    } else {
+      // No asset tweak, use the base key's x-only pubkey
+      const basePair = ECPair.fromPrivateKey(privateKeyBuffer);
+      pPrime = basePair.publicKey.slice(1, 33);
+    }
+    
+    // Calculate TapTweak
+    const tapTweak = bitcoin.crypto.taggedHash('TapTweak', pPrime);
+    const finalPrivateKey = ecc.privateAdd(privateKeyBuffer, tapTweak);
+    if (!finalPrivateKey) {
+      throw new Error('Taproot tweak failed');
+    }
+    
+    // Step 8: Sign the hash
+    const signatureRaw = ecc.signSchnorr(messageHash, finalPrivateKey);
+    const signature = Buffer.from(signatureRaw).toString('hex');
+    
+    return { message, signature };
+  }
+
+  /**
+   * Feeds a Koi by signing a message and posting to the feed endpoint
+   * Updates local VTXO metadata with the response
+   */
+  async feedKoi(vtxo: Vtxo & { metadata?: AssetMetadata }): Promise<{ success: boolean; metadata: AssetMetadata }> {
+    // Sign the message
+    const { message, signature } = await this.signFeedMessage(vtxo.txid);
+    
+    // Post to /v1/assets/feed
+    const response = await fetch('http://localhost:7070/v1/assets/feed', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        txid: vtxo.txid,
+        signature,
+        message,
+      }),
+    });
+    
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ message: response.statusText }));
+      throw new Error(error.message || error.error || 'Failed to feed Koi');
+    }
+    
+    const result = await response.json();
+    
+    // Validate and parse metadata
+    const metadata = AssetMetadataSchema.parse(result.metadata);
+    
+    // Update local VTXO with new metadata (xp, lastFedBlock)
+    const allVtxos = this.getStorage();
+    for (const addr in allVtxos) {
+      const index = allVtxos[addr].findIndex(v => v.txid === vtxo.txid);
+      if (index !== -1) {
+        allVtxos[addr][index].metadata = result.metadata; // <--- SAVE NEW STATE
+        allVtxos[addr][index].assetId = result.metadata.dna; // Preserve assetId
+        this.setStorage(allVtxos);
+        break;
+      }
+    }
+    
+    return { success: result.success, metadata };
   }
 }
 
