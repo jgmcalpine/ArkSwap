@@ -2,6 +2,9 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { NotFoundException } from '@nestjs/common';
 import { AssetStore } from './asset.store';
 import { AssetsController } from './assets.controller';
+import { RoundService } from '../round.service';
+import { VtxoStore } from '../vtxo-store.service';
+import { TransferService } from '../transfer.service';
 import type { AssetMetadata } from '@arkswap/protocol';
 
 describe('Assets', () => {
@@ -71,7 +74,7 @@ describe('Assets', () => {
     beforeEach(async () => {
       const module: TestingModule = await Test.createTestingModule({
         controllers: [AssetsController],
-        providers: [AssetStore],
+        providers: [AssetStore, RoundService, VtxoStore, TransferService],
       }).compile();
 
       controller = module.get<AssetsController>(AssetsController);

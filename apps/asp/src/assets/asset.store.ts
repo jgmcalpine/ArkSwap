@@ -16,5 +16,17 @@ export class AssetStore {
   getAll(): Map<string, AssetMetadata> {
     return new Map(this.metadata);
   }
+
+  /**
+   * Returns all assets as a plain object for JSON serialization
+   * Format: { [txid]: AssetMetadata }
+   */
+  getAllAsObject(): Record<string, AssetMetadata> {
+    const result: Record<string, AssetMetadata> = {};
+    this.metadata.forEach((metadata, txid) => {
+      result[txid] = metadata;
+    });
+    return result;
+  }
 }
 

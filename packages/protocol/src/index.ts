@@ -175,7 +175,7 @@ export function assertSafeNetwork(networkName: string) {
   }
 }
 
-export { createSwapLock, getRefundWitness, createAssetLock, getAssetHash } from './script';
+export { createSwapLock, getRefundWitness, createAssetLock, getAssetHash, createAssetPayToPublicKey } from './script';
 export type { SwapLockParams, SwapLockResult } from './script';
 
 /**

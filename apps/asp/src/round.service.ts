@@ -1,14 +1,16 @@
 import { Injectable } from '@nestjs/common';
 import { Interval } from '@nestjs/schedule';
 import { randomUUID } from 'crypto';
-import type { Vtxo, ArkTransaction } from '@arkswap/protocol';
+import type { Vtxo, ArkTransaction, AssetMetadata } from '@arkswap/protocol';
 import { asTxId, asAddress } from '@arkswap/protocol';
 import { VtxoStore } from './vtxo-store.service';
 import { TransferService } from './transfer.service';
+import { AssetStore } from './assets/asset.store';
 
 interface PendingLift {
   address: string;
   amount: number;
+  metadata?: AssetMetadata;
 }
 
 @Injectable()
@@ -21,12 +23,13 @@ export class RoundService {
   constructor(
     private readonly vtxoStore: VtxoStore,
     private readonly transferService: TransferService,
+    private readonly assetStore: AssetStore,
   ) {
     console.log('RoundService initialized');
   }
 
-  scheduleLift(address: string, amount: number): void {
-    this.pendingLifts.push({ address, amount });
+  scheduleLift(address: string, amount: number, metadata?: AssetMetadata): void {
+    this.pendingLifts.push({ address, amount, metadata });
   }
 
   async submitTx(tx: ArkTransaction): Promise<void> {
@@ -91,6 +94,12 @@ export class RoundService {
       };
       
       this.vtxoStore.addVtxo(vtxo);
+      
+      // If metadata exists, save it using the newly generated txid
+      if (lift.metadata) {
+        this.assetStore.saveMetadata(txid, lift.metadata);
+        console.log(`🐟 Asset Minted: ${txid}`);
+      }
     });
     
     // Clear pending lifts
