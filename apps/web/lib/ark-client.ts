@@ -709,20 +709,54 @@ export class MockArkClient {
   }
 
   /**
-   * Breeds two Koi assets to create a new child
-   * Constructs a transaction spending two Asset VTXOs (parents) and Payment VTXOs (fee)
+   * Signs a message for breeding two Koi assets
+   * Signs with the base wallet key (no tweaking) - simple identity verification
    * @param parent1Id - Transaction ID of the first parent asset
    * @param parent2Id - Transaction ID of the second parent asset
-   * @returns Promise with the breeding transaction ID
+   * @returns Object containing the message and signature hex string
    */
-  async breed(parent1Id: string, parent2Id: string): Promise<string> {
-    const myAddress = await this.getAddress();
+  async signBreedMessage(parent1Id: string, parent2Id: string): Promise<{ message: string; signature: string }> {
+    const { bitcoin, ecc } = walletTools;
     
-    if (!myAddress) {
-      throw new Error('No wallet found. Please create a wallet first.');
+    // Step 1: Construct message
+    const message = `Breed ${parent1Id} + ${parent2Id}`;
+    
+    // Step 2: Hash message (SHA256)
+    const messageHash = bitcoin.crypto.sha256(Buffer.from(message, 'utf8'));
+    
+    // Step 3: Get keypair and prepare private key
+    const keyPair = await this.getKeyPair();
+    if (!keyPair.privateKey) {
+      throw new Error('Missing private key');
     }
+    
+    // Prepare private key buffer (32 bytes)
+    let privateKeyBuffer = keyPair.privateKey.length === 33 
+      ? keyPair.privateKey.slice(1) 
+      : keyPair.privateKey;
+    
+    // Step 4: Handle Parity Check
+    // If the public key has an ODD Y-coordinate (prefix 0x03), negate the private key
+    if (keyPair.publicKey[0] === 0x03) {
+      privateKeyBuffer = Buffer.from(ecc.privateNegate(privateKeyBuffer));
+    }
+    
+    // Step 5: Sign hash with private key (no tweaking - base wallet key only)
+    const signatureRaw = ecc.signSchnorr(messageHash, privateKeyBuffer);
+    const signature = Buffer.from(signatureRaw).toString('hex');
+    
+    return { message, signature };
+  }
 
-    // 1. Find Parent VTXOs by ID
+  /**
+   * Breeds two Koi assets to create a new child
+   * Signs a message proving ownership and calls the ASP breeding endpoint
+   * @param parent1Id - Transaction ID of the first parent asset
+   * @param parent2Id - Transaction ID of the second parent asset
+   * @returns Promise with the child metadata
+   */
+  async breed(parent1Id: string, parent2Id: string): Promise<{ success: boolean; child: AssetMetadata }> {
+    // Step 1: Find both VTXOs in local storage
     const parent1Txid = asTxId(parent1Id);
     const parent2Txid = asTxId(parent2Id);
     
@@ -737,7 +771,7 @@ export class MockArkClient {
       throw new Error(`Parent 2 VTXO not found: ${parent2Id}`);
     }
 
-    // 2. Validation: Ensure parents are owned, not spent, and distinct
+    // Step 2: Validation
     if (parent1Vtxo.spent) {
       throw new Error(`Parent 1 VTXO already spent: ${parent1Id}`);
     }
@@ -750,7 +784,6 @@ export class MockArkClient {
       throw new Error('Cannot breed a Koi with itself');
     }
 
-    // Ensure both parents have metadata (they are Asset VTXOs)
     if (!parent1Vtxo.metadata) {
       throw new Error(`Parent 1 is not an asset VTXO: ${parent1Id}`);
     }
@@ -759,83 +792,18 @@ export class MockArkClient {
       throw new Error(`Parent 2 is not an asset VTXO: ${parent2Id}`);
     }
 
-    // 3. Find Payment VTXOs to cover the fee (500 sats)
-    const feeAmount = 500;
-    const paymentCoins = this.selectCoins(myAddress, feeAmount);
-    
-    if (paymentCoins.length === 0) {
-      throw new Error('Insufficient payment funds for breeding fee');
-    }
+    // Step 3: Get walletPubkey
+    const walletPubkey = await this.getPublicKey();
+    const userPubkey = walletPubkey.toString('hex');
 
-    const paymentTotal = paymentCoins.reduce((sum, v) => sum + v.amount, 0);
-    if (paymentTotal < feeAmount) {
-      throw new Error(`Insufficient payment funds: ${paymentTotal} < ${feeAmount}`);
-    }
+    // Step 4: Sign the message using double-tweak logic
+    const { message, signature } = await this.signBreedMessage(parent1Id, parent2Id);
 
-    // 4. Build Outputs
-    // Output 1: The Egg (child) - sent to user's main address
-    // Since we don't know the DNA yet (ASP calculates it), we send to standard address
-    // The egg receives the sum of both parent amounts
-    const eggAmount = parent1Vtxo.amount + parent2Vtxo.amount;
-    const change = paymentTotal - feeAmount;
-
-    const outputs: ArkOutput[] = [
-      { address: asAddress(myAddress), amount: eggAmount },
-    ];
-
-    if (change > 0) {
-      outputs.push({ address: asAddress(myAddress), amount: change });
-    }
-
-    // 5. Prepare Inputs (without signatures)
-    const allInputs = [
-      { txid: parent1Vtxo.txid, vout: parent1Vtxo.vout },
-      { txid: parent2Vtxo.txid, vout: parent2Vtxo.vout },
-      ...paymentCoins.map(coin => ({ txid: coin.txid, vout: coin.vout })),
-    ];
-
-    // 6. Calculate Transaction Hash
-    const txHashHex = await getTxHash(allInputs, outputs);
-    const txHashBuffer = Buffer.from(txHashHex, 'hex');
-
-    // 7. Sign All Inputs (with correct tweaks for each)
-    const inputs: ArkInput[] = await Promise.all([
-      // Parent 1: Asset VTXO (Asset Tweak + TapTweak)
-      (async () => {
-        const signatureHex = await this.signInput(parent1Vtxo, txHashBuffer);
-        return {
-          txid: parent1Vtxo.txid,
-          vout: parent1Vtxo.vout,
-          signature: asSignatureHex(signatureHex),
-        };
-      })(),
-      // Parent 2: Asset VTXO (Asset Tweak + TapTweak)
-      (async () => {
-        const signatureHex = await this.signInput(parent2Vtxo, txHashBuffer);
-        return {
-          txid: parent2Vtxo.txid,
-          vout: parent2Vtxo.vout,
-          signature: asSignatureHex(signatureHex),
-        };
-      })(),
-      // Payment Coins: Standard VTXOs (TapTweak only)
-      ...paymentCoins.map(async (coin) => {
-        const signatureHex = await this.signInput(coin, txHashBuffer);
-        return {
-          txid: coin.txid,
-          vout: coin.vout,
-          signature: asSignatureHex(signatureHex),
-        };
-      }),
-    ]);
-
-    const tx: ArkTransaction = { inputs, outputs };
-
-    // 8. Broadcast to ASP
+    // Step 5: Call POST /v1/assets/breed
     const response = await fetch('http://localhost:7070/v1/assets/breed', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(tx),
+      body: JSON.stringify({ parent1Id, parent2Id, userPubkey, signature }),
     });
 
     if (!response.ok) {
@@ -845,17 +813,18 @@ export class MockArkClient {
 
     const result = await response.json();
 
-    // 9. Update State: Mark all inputs as spent
-    const allVtxos = this.getStorage();
-    const allSpentTxids = [
-      parent1Vtxo.txid,
-      parent2Vtxo.txid,
-      ...paymentCoins.map(c => c.txid),
-    ];
+    // Step 6: On Success - Derive child address and add to watched addresses
+    // This ensures the poller knows where to look for the new Gen 1 fish
+    if (result.child) {
+      const childAddress = createAssetPayToPublicKey(walletPubkey, result.child);
+      this.addWatchedAddress(childAddress);
+    }
 
+    // Step 7: Mark Parent 1 and Parent 2 as spent: true in local storage
+    const allVtxos = this.getStorage();
     for (const addr in allVtxos) {
       allVtxos[addr] = allVtxos[addr].map(v => {
-        if (allSpentTxids.includes(v.txid)) {
+        if (v.txid === parent1Txid || v.txid === parent2Txid) {
           return { ...v, spent: true };
         }
         return v;
@@ -863,7 +832,8 @@ export class MockArkClient {
     }
     this.setStorage(allVtxos);
 
-    return result.txid || result.transferId || 'breeding_success';
+    // Step 8: Return the API response (childMetadata will be available via polling)
+    return result;
   }
 
   /**
