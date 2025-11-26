@@ -618,6 +618,255 @@ export class MockArkClient {
   }
 
   /**
+   * Finds a VTXO by txid across all addresses in storage
+   * Returns the VTXO with optional metadata and assetId if found
+   */
+  private findVtxoByTxid(txid: TxId): (Vtxo & { metadata?: AssetMetadata; assetId?: string }) | undefined {
+    const vtxos = this.getStorage();
+    for (const addr in vtxos) {
+      const vtxo = vtxos[addr].find(v => v.txid === txid);
+      if (vtxo) {
+        return vtxo;
+      }
+    }
+    return undefined;
+  }
+
+  /**
+   * Signs a transaction hash for a specific VTXO input
+   * Applies Asset Tweak + TapTweak for Asset VTXOs, or just TapTweak for Payment VTXOs
+   * @param vtxo - The VTXO to sign (may have metadata for Asset VTXOs)
+   * @param txHashBuffer - The transaction hash to sign
+   * @returns The signature as a hex string
+   */
+  private async signInput(
+    vtxo: Vtxo & { metadata?: AssetMetadata; assetId?: string },
+    txHashBuffer: Buffer,
+  ): Promise<string> {
+    const { bitcoin, ECPair, ecc } = walletTools;
+    const keyPair = await this.getKeyPair();
+    
+    if (!keyPair.privateKey) {
+      throw new Error('Missing private key');
+    }
+
+    // Prepare private key buffer (32 bytes)
+    let privateKeyBuffer = keyPair.privateKey.length === 33 
+      ? keyPair.privateKey.slice(1) 
+      : keyPair.privateKey;
+
+    // Handle Base Key Parity
+    // If the public key has an ODD Y-coordinate (prefix 0x03), negate the private key
+    if (keyPair.publicKey[0] === 0x03) {
+      privateKeyBuffer = Buffer.from(ecc.privateNegate(privateKeyBuffer));
+    }
+
+    // Apply Asset Tweak (if metadata exists - this is an Asset VTXO)
+    let assetPubkey: Buffer | undefined;
+    if (vtxo.metadata) {
+      const assetTweak = getAssetHash(vtxo.metadata);
+      const assetPrivateKey = ecc.privateAdd(privateKeyBuffer, assetTweak);
+      if (!assetPrivateKey) {
+        throw new Error('Asset tweak failed');
+      }
+      privateKeyBuffer = Buffer.from(assetPrivateKey);
+
+      // Handle Asset Pubkey Parity
+      // Get the intermediate pubkey (P') to check parity
+      const tempPair = ECPair.fromPrivateKey(privateKeyBuffer);
+      assetPubkey = tempPair.publicKey;
+
+      // If assetPubkey has odd Y-coordinate, negate the private key
+      if (assetPubkey[0] === 0x03) {
+        privateKeyBuffer = Buffer.from(ecc.privateNegate(privateKeyBuffer));
+        // Recreate pair with negated key to get updated pubkey
+        const negatedPair = ECPair.fromPrivateKey(privateKeyBuffer);
+        assetPubkey = negatedPair.publicKey;
+      }
+    }
+
+    // Apply BIP-86 TapTweak (Standard for P2TR)
+    // Use assetPubkey if available (from asset tweak), otherwise get from base key
+    let pPrime: Buffer;
+    if (assetPubkey) {
+      pPrime = assetPubkey.slice(1, 33);
+    } else {
+      // No asset tweak, use the base key's x-only pubkey
+      const basePair = ECPair.fromPrivateKey(privateKeyBuffer);
+      pPrime = basePair.publicKey.slice(1, 33);
+    }
+
+    // Calculate TapTweak
+    const tapTweak = bitcoin.crypto.taggedHash('TapTweak', pPrime);
+    const finalPrivateKey = ecc.privateAdd(privateKeyBuffer, tapTweak);
+    if (!finalPrivateKey) {
+      throw new Error('Taproot tweak failed');
+    }
+
+    // Sign the hash
+    const signatureRaw = ecc.signSchnorr(txHashBuffer, finalPrivateKey);
+    return Buffer.from(signatureRaw).toString('hex');
+  }
+
+  /**
+   * Breeds two Koi assets to create a new child
+   * Constructs a transaction spending two Asset VTXOs (parents) and Payment VTXOs (fee)
+   * @param parent1Id - Transaction ID of the first parent asset
+   * @param parent2Id - Transaction ID of the second parent asset
+   * @returns Promise with the breeding transaction ID
+   */
+  async breed(parent1Id: string, parent2Id: string): Promise<string> {
+    const myAddress = await this.getAddress();
+    
+    if (!myAddress) {
+      throw new Error('No wallet found. Please create a wallet first.');
+    }
+
+    // 1. Find Parent VTXOs by ID
+    const parent1Txid = asTxId(parent1Id);
+    const parent2Txid = asTxId(parent2Id);
+    
+    const parent1Vtxo = this.findVtxoByTxid(parent1Txid);
+    const parent2Vtxo = this.findVtxoByTxid(parent2Txid);
+
+    if (!parent1Vtxo) {
+      throw new Error(`Parent 1 VTXO not found: ${parent1Id}`);
+    }
+
+    if (!parent2Vtxo) {
+      throw new Error(`Parent 2 VTXO not found: ${parent2Id}`);
+    }
+
+    // 2. Validation: Ensure parents are owned, not spent, and distinct
+    if (parent1Vtxo.spent) {
+      throw new Error(`Parent 1 VTXO already spent: ${parent1Id}`);
+    }
+
+    if (parent2Vtxo.spent) {
+      throw new Error(`Parent 2 VTXO already spent: ${parent2Id}`);
+    }
+
+    if (parent1Txid === parent2Txid) {
+      throw new Error('Cannot breed a Koi with itself');
+    }
+
+    // Ensure both parents have metadata (they are Asset VTXOs)
+    if (!parent1Vtxo.metadata) {
+      throw new Error(`Parent 1 is not an asset VTXO: ${parent1Id}`);
+    }
+
+    if (!parent2Vtxo.metadata) {
+      throw new Error(`Parent 2 is not an asset VTXO: ${parent2Id}`);
+    }
+
+    // 3. Find Payment VTXOs to cover the fee (500 sats)
+    const feeAmount = 500;
+    const paymentCoins = this.selectCoins(myAddress, feeAmount);
+    
+    if (paymentCoins.length === 0) {
+      throw new Error('Insufficient payment funds for breeding fee');
+    }
+
+    const paymentTotal = paymentCoins.reduce((sum, v) => sum + v.amount, 0);
+    if (paymentTotal < feeAmount) {
+      throw new Error(`Insufficient payment funds: ${paymentTotal} < ${feeAmount}`);
+    }
+
+    // 4. Build Outputs
+    // Output 1: The Egg (child) - sent to user's main address
+    // Since we don't know the DNA yet (ASP calculates it), we send to standard address
+    // The egg receives the sum of both parent amounts
+    const eggAmount = parent1Vtxo.amount + parent2Vtxo.amount;
+    const change = paymentTotal - feeAmount;
+
+    const outputs: ArkOutput[] = [
+      { address: asAddress(myAddress), amount: eggAmount },
+    ];
+
+    if (change > 0) {
+      outputs.push({ address: asAddress(myAddress), amount: change });
+    }
+
+    // 5. Prepare Inputs (without signatures)
+    const allInputs = [
+      { txid: parent1Vtxo.txid, vout: parent1Vtxo.vout },
+      { txid: parent2Vtxo.txid, vout: parent2Vtxo.vout },
+      ...paymentCoins.map(coin => ({ txid: coin.txid, vout: coin.vout })),
+    ];
+
+    // 6. Calculate Transaction Hash
+    const txHashHex = await getTxHash(allInputs, outputs);
+    const txHashBuffer = Buffer.from(txHashHex, 'hex');
+
+    // 7. Sign All Inputs (with correct tweaks for each)
+    const inputs: ArkInput[] = await Promise.all([
+      // Parent 1: Asset VTXO (Asset Tweak + TapTweak)
+      (async () => {
+        const signatureHex = await this.signInput(parent1Vtxo, txHashBuffer);
+        return {
+          txid: parent1Vtxo.txid,
+          vout: parent1Vtxo.vout,
+          signature: asSignatureHex(signatureHex),
+        };
+      })(),
+      // Parent 2: Asset VTXO (Asset Tweak + TapTweak)
+      (async () => {
+        const signatureHex = await this.signInput(parent2Vtxo, txHashBuffer);
+        return {
+          txid: parent2Vtxo.txid,
+          vout: parent2Vtxo.vout,
+          signature: asSignatureHex(signatureHex),
+        };
+      })(),
+      // Payment Coins: Standard VTXOs (TapTweak only)
+      ...paymentCoins.map(async (coin) => {
+        const signatureHex = await this.signInput(coin, txHashBuffer);
+        return {
+          txid: coin.txid,
+          vout: coin.vout,
+          signature: asSignatureHex(signatureHex),
+        };
+      }),
+    ]);
+
+    const tx: ArkTransaction = { inputs, outputs };
+
+    // 8. Broadcast to ASP
+    const response = await fetch('http://localhost:7070/v1/assets/breed', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(tx),
+    });
+
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({ error: response.statusText }));
+      throw new Error(err.error || err.message || 'Breeding failed');
+    }
+
+    const result = await response.json();
+
+    // 9. Update State: Mark all inputs as spent
+    const allVtxos = this.getStorage();
+    const allSpentTxids = [
+      parent1Vtxo.txid,
+      parent2Vtxo.txid,
+      ...paymentCoins.map(c => c.txid),
+    ];
+
+    for (const addr in allVtxos) {
+      allVtxos[addr] = allVtxos[addr].map(v => {
+        if (allSpentTxids.includes(v.txid)) {
+          return { ...v, spent: true };
+        }
+        return v;
+      });
+    }
+    this.setStorage(allVtxos);
+
+    return result.txid || result.transferId || 'breeding_success';
+  }
+
+  /**
    * Clears all wallet data from localStorage (WIF, VTXOs, and watched addresses)
    * Used when disconnecting a wallet
    */
