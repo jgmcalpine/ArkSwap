@@ -14,6 +14,9 @@ import { saveSession, loadSession, clearSession, type SwapStep as SwapStepType }
 
 type SwapStep = 'quote' | 'locking' | 'success' | 'pendingRefund' | 'refundSuccess';
 
+// Extended VTXO type that may include asset metadata
+type ExtendedVtxo = Vtxo & { metadata?: AssetMetadata; assetId?: string };
+
 export function Dashboard() {
   const { balance, paymentBalance, isConnected, address, refreshBalance, vtxos } = useWallet();
   const [isLoading, setIsLoading] = useState(false);
@@ -346,7 +349,7 @@ export function Dashboard() {
 
   // Calculate selected total
   const selectedTotal = vtxos
-    .filter(v => selectedVtxos.includes(v.txid))
+    .filter((v: ExtendedVtxo) => selectedVtxos.includes(v.txid))
     .reduce((sum, v) => sum + v.amount, 0);
 
   const requiredAmount = parseFloat(swapAmount) || 0;
@@ -420,7 +423,7 @@ export function Dashboard() {
     }
   }, [swapStep, bitcoinInfo]);
 
-  const handleEnterPond = async (vtxo: Vtxo) => {
+  const handleEnterPond = async (vtxo: ExtendedVtxo) => {
     if (!vtxo.metadata) return;
 
     setIsEnteringPond(vtxo.txid);

@@ -7,11 +7,14 @@ import { mockArkClient } from '../lib/ark-client';
 import type { Vtxo, AssetMetadata } from '@arkswap/protocol';
 import { getErrorMessage } from '../lib/error-utils';
 
+// Extended VTXO type that may include asset metadata
+type ExtendedVtxo = Vtxo & { metadata?: AssetMetadata };
+
 interface KoiPondProps {
   walletAddress: string | null;
-  vtxos: Array<Vtxo & { metadata?: AssetMetadata }>;
+  vtxos: ExtendedVtxo[];
   onMint?: () => void;
-  onEnterPond?: (vtxo: Vtxo) => void;
+  onEnterPond?: (vtxo: ExtendedVtxo) => void;
 }
 
 export function KoiPond({ walletAddress, vtxos, onMint, onEnterPond }: KoiPondProps) {
@@ -86,7 +89,7 @@ export function KoiPond({ walletAddress, vtxos, onMint, onEnterPond }: KoiPondPr
     }
   };
 
-  const handleEnterPond = async (vtxo: Vtxo) => {
+  const handleEnterPond = async (vtxo: ExtendedVtxo) => {
     if (!vtxo.metadata) return;
 
     setIsEnteringPond(vtxo.txid);
