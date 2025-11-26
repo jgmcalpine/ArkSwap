@@ -134,7 +134,7 @@ describe('createAssetLock', () => {
       expect(result1.address).not.toBe(result2.address);
     });
 
-    it('should produce different address when lastFedBlock changes', () => {
+    it('should produce the same address when lastFedBlock changes (mutable field)', () => {
       const result1 = createAssetLock(defaultParams, defaultMetadata);
       
       const differentMetadata: AssetMetadata = {
@@ -144,10 +144,12 @@ describe('createAssetLock', () => {
       
       const result2 = createAssetLock(defaultParams, differentMetadata);
       
-      expect(result1.address).not.toBe(result2.address);
+      // lastFedBlock is a mutable field (changes when feeding), so it should NOT affect the address
+      // The address should remain stable even after feeding
+      expect(result1.address).toBe(result2.address);
     });
 
-    it('should produce different address when xp changes', () => {
+    it('should produce the same address when xp changes (mutable field)', () => {
       const result1 = createAssetLock(defaultParams, defaultMetadata);
       
       const differentMetadata: AssetMetadata = {
@@ -157,7 +159,9 @@ describe('createAssetLock', () => {
       
       const result2 = createAssetLock(defaultParams, differentMetadata);
       
-      expect(result1.address).not.toBe(result2.address);
+      // xp is a mutable field (changes when feeding), so it should NOT affect the address
+      // The address should remain stable even after feeding
+      expect(result1.address).toBe(result2.address);
     });
 
     it('should produce different address when parents array changes', () => {
