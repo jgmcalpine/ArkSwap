@@ -312,6 +312,7 @@ export class AssetsController {
         lastFedBlock: 0, // Born "Starving" (eligible to feed immediately)
         xp: 0,
         parents: [parent1Id, parent2Id],
+        entropy: entropyHex, // Include entropy for client-side verification
       };
 
       // 4. Minting

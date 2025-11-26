@@ -189,6 +189,7 @@ export interface AssetMetadata {
   lastFedBlock: number;
   xp: number; // Growth points for feeding mini-game (default 0)
   parents?: string[]; // Optional array of TxIDs for lineage tracking
+  entropy?: string; // Hex string (64 hex characters) - randomness used for genetic mixing
 }
 
 /**
@@ -202,6 +203,7 @@ export const AssetMetadataSchema = z.object({
   lastFedBlock: z.number().int().nonnegative(),
   xp: z.number().nonnegative().default(0),
   parents: z.array(z.string().length(64)).optional().transform((val) => val ?? []),
+  entropy: z.string().length(64).regex(/^[0-9a-fA-F]+$/).optional(),
 });
 
 /**

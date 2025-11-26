@@ -1,6 +1,6 @@
 import { walletTools } from './crypto';
 import type { Vtxo, ArkTransaction, ArkInput, ArkOutput, Address, TxId, AssetMetadata } from '@arkswap/protocol';
-import { getTxHash, VtxoSchema, AssetMetadataSchema, asTxId, asAddress, asSignatureHex, createAssetPayToPublicKey, getAssetHash } from '@arkswap/protocol';
+import { getTxHash, VtxoSchema, AssetMetadataSchema, asTxId, asAddress, asSignatureHex, createAssetPayToPublicKey, getAssetHash, mixGenomes } from '@arkswap/protocol';
 import { z } from 'zod';
 
 const WIF_STORAGE_KEY = 'ark_wallet_wif';
@@ -1148,6 +1148,107 @@ export class MockArkClient {
     }
     
     return { success: result.success, metadata };
+  }
+
+  /**
+   * Verifies that a child's DNA was correctly generated from its parents using the provided entropy
+   * Re-runs the genetic algorithm locally to ensure the ASP produced the correct result
+   * @param child - The child VTXO with metadata to verify
+   * @returns Promise<boolean> - true if genetics are valid, false otherwise
+   */
+  async verifyGenetics(child: Vtxo & { metadata?: AssetMetadata }): Promise<boolean> {
+    // Check: If no parents, return true (Gen 0 is axiomatic)
+    if (!child.metadata || !child.metadata.parents || child.metadata.parents.length === 0) {
+      return true;
+    }
+
+    // Check: If no entropy, cannot verify (return false for safety)
+    if (!child.metadata.entropy) {
+      return false;
+    }
+
+    // Fetch Parents: Look up Parent 1 and Parent 2 from child.metadata.parents
+    const parent1Id = child.metadata.parents[0];
+    const parent2Id = child.metadata.parents[1];
+
+    if (!parent1Id || !parent2Id) {
+      return false;
+    }
+
+    // Try to find parents in local storage first
+    const parent1Txid = asTxId(parent1Id);
+    const parent2Txid = asTxId(parent2Id);
+    
+    let parent1Vtxo = this.findVtxoByTxid(parent1Txid);
+    let parent2Vtxo = this.findVtxoByTxid(parent2Txid);
+
+    // Fallback: If not in local storage, fetch from ASP
+    if (!parent1Vtxo || !parent1Vtxo.metadata) {
+      try {
+        const response = await fetch(`http://localhost:7070/v1/assets/${parent1Id}`);
+        if (!response.ok) {
+          return false;
+        }
+        const text = await response.text();
+        const assetData = text ? JSON.parse(text) : null;
+        if (!assetData) {
+          return false;
+        }
+        const metadata = AssetMetadataSchema.parse(assetData);
+        // Create minimal Vtxo object if parent not in local storage
+        parent1Vtxo = parent1Vtxo || {
+          txid: parent1Txid,
+          vout: 0,
+          amount: 0,
+          address: '' as Address,
+          spent: false,
+        };
+        parent1Vtxo = { ...parent1Vtxo, metadata } as Vtxo & { metadata?: AssetMetadata };
+      } catch {
+        return false;
+      }
+    }
+
+    if (!parent2Vtxo || !parent2Vtxo.metadata) {
+      try {
+        const response = await fetch(`http://localhost:7070/v1/assets/${parent2Id}`);
+        if (!response.ok) {
+          return false;
+        }
+        const text = await response.text();
+        const assetData = text ? JSON.parse(text) : null;
+        if (!assetData) {
+          return false;
+        }
+        const metadata = AssetMetadataSchema.parse(assetData);
+        // Create minimal Vtxo object if parent not in local storage
+        parent2Vtxo = parent2Vtxo || {
+          txid: parent2Txid,
+          vout: 0,
+          amount: 0,
+          address: '' as Address,
+          spent: false,
+        };
+        parent2Vtxo = { ...parent2Vtxo, metadata } as Vtxo & { metadata?: AssetMetadata };
+      } catch {
+        return false;
+      }
+    }
+
+    // Ensure we have both parent metadata
+    if (!parent1Vtxo.metadata || !parent2Vtxo.metadata) {
+      return false;
+    }
+
+    // Replay: Run mixGenomes with the same inputs
+    const calculatedDNA = mixGenomes(
+      parent1Vtxo.metadata.dna,
+      parent2Vtxo.metadata.dna,
+      child.metadata.entropy
+    );
+
+    // Compare: return calculatedDNA === child.metadata.dna
+    return calculatedDNA === child.metadata.dna;
   }
 }
 

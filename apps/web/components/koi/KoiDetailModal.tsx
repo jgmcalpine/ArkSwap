@@ -2,12 +2,14 @@
 
 import { useState, useEffect } from 'react';
 import type { FC, MouseEventHandler } from 'react';
-import { X } from 'lucide-react';
+import { X, Shield, AlertTriangle } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { KoiRenderer } from './KoiRenderer';
 import type { DnaTraits, KoiRarity } from '../../hooks/useDnaParser';
-import type { AssetMetadata } from '@arkswap/protocol';
+import type { AssetMetadata, Vtxo } from '@arkswap/protocol';
 import { getErrorMessage } from '../../lib/error-utils';
+import { mockArkClient } from '../../lib/ark-client';
+import { asTxId } from '@arkswap/protocol';
 
 export interface KoiDetailModalProps {
   readonly open: boolean;
@@ -47,6 +49,8 @@ export const KoiDetailModal: FC<KoiDetailModalProps> = ({
   isFeeding = false,
 }) => {
   const [feedError, setFeedError] = useState<string | null>(null);
+  const [geneticsVerified, setGeneticsVerified] = useState<boolean | null>(null);
+  const [isVerifying, setIsVerifying] = useState(false);
 
   // Clear error when modal opens/closes
   useEffect(() => {
@@ -54,6 +58,39 @@ export const KoiDetailModal: FC<KoiDetailModalProps> = ({
       setFeedError(null);
     }
   }, [open]);
+
+  // Run verification on mount or when metadata/txid changes
+  useEffect(() => {
+    if (!open || !metadata || !txid) {
+      setGeneticsVerified(null);
+      return;
+    }
+
+    const verify = async () => {
+      setIsVerifying(true);
+      try {
+        // Create a VTXO-like object for verification
+        const childVtxo: Vtxo & { metadata?: AssetMetadata } = {
+          txid: asTxId(txid),
+          vout: 0,
+          amount: 0,
+          address: '' as any,
+          spent: false,
+          metadata,
+        };
+        
+        const isValid = await mockArkClient.verifyGenetics(childVtxo);
+        setGeneticsVerified(isValid);
+      } catch (error) {
+        console.error('Genetics verification failed:', error);
+        setGeneticsVerified(false);
+      } finally {
+        setIsVerifying(false);
+      }
+    };
+
+    verify();
+  }, [open, metadata, txid]);
 
   // Wrap onFeed to catch errors
   const handleFeed: MouseEventHandler<HTMLButtonElement> = async (event) => {
@@ -269,6 +306,26 @@ export const KoiDetailModal: FC<KoiDetailModalProps> = ({
                     <span className="text-gray-500">Owner</span>
                     <span className="font-medium text-gray-100">{ownerLabel}</span>
                   </div>
+                  {metadata && metadata.parents && metadata.parents.length > 0 && (
+                    <div className="flex items-center justify-between gap-2 pt-1 border-t border-gray-800">
+                      <span className="text-gray-500">Genetics</span>
+                      <span className="flex items-center gap-1.5 font-medium">
+                        {isVerifying ? (
+                          <span className="text-gray-400 text-xs">Verifying...</span>
+                        ) : geneticsVerified === true ? (
+                          <>
+                            <Shield className="h-3.5 w-3.5 text-green-400" />
+                            <span className="text-green-400 text-xs">🧬 Verified Genetics</span>
+                          </>
+                        ) : geneticsVerified === false ? (
+                          <>
+                            <AlertTriangle className="h-3.5 w-3.5 text-red-400" />
+                            <span className="text-red-400 text-xs">⚠️ Genetic Mismatch (Protocol Violation)</span>
+                          </>
+                        ) : null}
+                      </span>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
