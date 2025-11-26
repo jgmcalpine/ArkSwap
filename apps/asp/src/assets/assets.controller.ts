@@ -1,6 +1,5 @@
-import { Controller, Get, Post, Body, Param, BadRequestException, OnModuleInit } from '@nestjs/common';
-import { randomBytes, createHash } from 'crypto';
-import * as bitcoin from 'bitcoinjs-lib';
+import { Controller, Get, Post, Body, Param, BadRequestException } from '@nestjs/common';
+import { randomBytes } from 'crypto';
 import { AssetStore } from './asset.store';
 import { RoundService } from '../round.service';
 import { VtxoStore } from '../vtxo-store.service';
@@ -10,8 +9,9 @@ import {
   type AssetMetadata,
   generateGenesisDNA,
   createAssetPayToPublicKey,
-  type ECCLibrary,
+  mixGenomes,
 } from '@arkswap/protocol';
+import { SignatureVerifierService } from './signature-verifier.service';
 
 interface SaveMetadataDto {
   txid: string;
@@ -29,30 +29,22 @@ interface FeedRequestDto {
   message: string;
 }
 
-@Controller('v1/assets')
-export class AssetsController implements OnModuleInit {
-  private ecc: ECCLibrary;
+interface BreedRequestDto {
+  parent1Id: string;
+  parent2Id: string;
+  userPubkey: string;
+  signature: string;
+}
 
+@Controller('v1/assets')
+export class AssetsController {
   constructor(
     private readonly store: AssetStore,
     private readonly roundService: RoundService,
     private readonly vtxoStore: VtxoStore,
     private readonly bitcoinService: BitcoinService,
+    private readonly signatureVerifier: SignatureVerifierService,
   ) {}
-
-  onModuleInit() {
-    // Initialize ECC library (same as PondController)
-    try {
-      // eslint-disable-next-line @typescript-eslint/no-require-imports, @typescript-eslint/no-var-requires
-      const rawEcc = require('@bitcoinerlab/secp256k1');
-      const eccLib = rawEcc.default || rawEcc;
-      bitcoin.initEccLib(eccLib);
-      this.ecc = eccLib as ECCLibrary;
-    } catch (e) {
-      console.error('❌ Failed to initialize crypto:', e);
-      throw new Error('AssetsController Crypto Init Failed');
-    }
-  }
 
   @Get()
   getAll(): Record<string, AssetMetadata> {
@@ -195,31 +187,10 @@ export class AssetsController implements OnModuleInit {
     }
 
     // 4. Verify Signature
-    try {
-      // Reconstruct the message hash (SHA256)
-      const messageHash = createHash('sha256').update(message).digest();
-      const messageHashBuffer = Buffer.from(messageHash);
-
-      // Decode VTXO Address -> Pubkey (reuse logic from PondController)
-      const outputScript = bitcoin.address.toOutputScript(vtxo.address, bitcoin.networks.regtest);
-      
-      // Taproot Script is: OP_1 (0x51) <32-byte-pubkey>
-      if (outputScript.length !== 34 || outputScript[0] !== 0x51 || outputScript[1] !== 0x20) {
-        throw new BadRequestException(`Invalid Taproot script for address ${vtxo.address}`);
-      }
-      
-      const pubkey = Buffer.from(outputScript.slice(2, 34));
-      const signatureBuffer = Buffer.from(signature, 'hex');
-
-      // Verify Schnorr Signature
-      const isValid = this.ecc.verifySchnorr(messageHashBuffer, pubkey, signatureBuffer);
-      
-      if (!isValid) {
-        throw new BadRequestException(`Invalid Schnorr signature for ${txid}`);
-      }
-    } catch (error) {
-      if (error instanceof BadRequestException) throw error;
-      throw new BadRequestException(`Signature verification failed: ${error}`);
+    const isValid = this.signatureVerifier.verifySignatureFromAddress(message, signature, vtxo.address);
+    
+    if (!isValid) {
+      throw new BadRequestException(`Invalid Schnorr signature for ${txid}`);
     }
 
     // 5. Get current block height
@@ -236,6 +207,135 @@ export class AssetsController implements OnModuleInit {
       }
       // Re-throw other errors (e.g., asset not found)
       throw error;
+    }
+  }
+
+  @Post('breed')
+  async breed(@Body() body: BreedRequestDto): Promise<{ success: boolean; child: AssetMetadata }> {
+    const { parent1Id, parent2Id, userPubkey, signature } = body;
+
+    if (!parent1Id || !parent2Id || !userPubkey || !signature) {
+      throw new BadRequestException('Invalid request: parent1Id, parent2Id, userPubkey, and signature are required');
+    }
+
+    // Validate userPubkey format
+    if (!/^[0-9a-fA-F]{64}$/.test(userPubkey)) {
+      throw new BadRequestException('userPubkey must be 64 hex characters (32 bytes)');
+    }
+
+    // Validate signature format (128 hex chars = 64 bytes)
+    if (!/^[0-9a-fA-F]{128}$/.test(signature)) {
+      throw new BadRequestException('signature must be 128 hex characters (64 bytes)');
+    }
+
+    try {
+      // 1. Verify Ownership
+      // Message to sign: "Breed ${parent1Id} + ${parent2Id}"
+      const expectedMessage = `Breed ${parent1Id} + ${parent2Id}`;
+
+      // Get both parent VTXOs
+      const parent1Vtxo = this.vtxoStore.getVtxo(parent1Id, 0);
+      const parent2Vtxo = this.vtxoStore.getVtxo(parent2Id, 0);
+
+      if (!parent1Vtxo) {
+        throw new BadRequestException(`Parent 1 VTXO not found: ${parent1Id}`);
+      }
+
+      if (!parent2Vtxo) {
+        throw new BadRequestException(`Parent 2 VTXO not found: ${parent2Id}`);
+      }
+
+      if (parent1Vtxo.spent) {
+        throw new BadRequestException(`Parent 1 VTXO already spent: ${parent1Id}`);
+      }
+
+      if (parent2Vtxo.spent) {
+        throw new BadRequestException(`Parent 2 VTXO already spent: ${parent2Id}`);
+      }
+
+      // Get metadata for both parents
+      const parent1Metadata = this.store.getMetadata(parent1Id);
+      const parent2Metadata = this.store.getMetadata(parent2Id);
+
+      if (!parent1Metadata) {
+        throw new BadRequestException(`Parent 1 asset not found: ${parent1Id}`);
+      }
+
+      if (!parent2Metadata) {
+        throw new BadRequestException(`Parent 2 asset not found: ${parent2Id}`);
+      }
+
+      // Verify ownership: Recreate asset addresses from userPubkey + metadata and compare
+      const userPubkeyBuffer = Buffer.from(userPubkey, 'hex');
+      const parent1ExpectedAddress = createAssetPayToPublicKey(userPubkeyBuffer, parent1Metadata);
+      const parent2ExpectedAddress = createAssetPayToPublicKey(userPubkeyBuffer, parent2Metadata);
+
+      if (parent1Vtxo.address !== parent1ExpectedAddress) {
+        throw new BadRequestException(`Parent 1 ownership verification failed: address mismatch`);
+      }
+
+      if (parent2Vtxo.address !== parent2ExpectedAddress) {
+        throw new BadRequestException(`Parent 2 ownership verification failed: address mismatch`);
+      }
+
+      // Verify Schnorr Signature matches userPubkey
+      const isValid = this.signatureVerifier.verifySignatureFromPubkey(
+        expectedMessage,
+        signature,
+        userPubkey,
+      );
+
+      if (!isValid) {
+        throw new BadRequestException('Invalid Schnorr signature for breeding request');
+      }
+
+      // 2. Genetic Execution
+      // Generate entropy (32 bytes)
+      const entropy = randomBytes(32);
+      const entropyHex = entropy.toString('hex');
+
+      // Call mixGenomes(parent1.dna, parent2.dna, entropy)
+      const childDna = mixGenomes(parent1Metadata.dna, parent2Metadata.dna, entropyHex);
+
+      // 3. Economic Execution (Fusion)
+      const childValue = parent1Vtxo.amount + parent2Vtxo.amount;
+      const childGeneration = Math.max(parent1Metadata.generation, parent2Metadata.generation) + 1;
+
+      // Get current block height for cooldown
+      const currentBlock = await this.bitcoinService.getBlockHeight();
+
+      // Create child metadata
+      const childMetadata: AssetMetadata = {
+        dna: childDna,
+        generation: childGeneration,
+        cooldownBlock: currentBlock + 10,
+        lastFedBlock: 0, // Born "Starving" (eligible to feed immediately)
+        xp: 0,
+        parents: [parent1Id, parent2Id],
+      };
+
+      // 4. Minting
+      // Calculate childAddress using createAssetPayToPublicKey(userPubkey, childMetadata)
+      const childAddress = createAssetPayToPublicKey(userPubkeyBuffer, childMetadata);
+
+      // Call RoundService.scheduleLift with childAddress and childValue
+      this.roundService.scheduleLift(childAddress, childValue, childMetadata);
+
+      // 5. Burn Parents: Mark both parents as spent
+      this.vtxoStore.markSpent(parent1Id, 0);
+      this.vtxoStore.markSpent(parent2Id, 0);
+
+      return {
+        success: true,
+        child: childMetadata,
+      };
+    } catch (error) {
+      if (error instanceof BadRequestException) {
+        throw error;
+      }
+      throw new BadRequestException(
+        `Breeding failed: ${error instanceof Error ? error.message : 'Unknown error'}`
+      );
     }
   }
 }
