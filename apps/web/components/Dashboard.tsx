@@ -15,7 +15,7 @@ import { saveSession, loadSession, clearSession, type SwapStep as SwapStepType }
 type SwapStep = 'quote' | 'locking' | 'success' | 'pendingRefund' | 'refundSuccess';
 
 export function Dashboard() {
-  const { balance, isConnected, address, refreshBalance, vtxos } = useWallet();
+  const { balance, paymentBalance, isConnected, address, refreshBalance, vtxos } = useWallet();
   const [isLoading, setIsLoading] = useState(false);
   const [faucetError, setFaucetError] = useState<string | null>(null);
   const [swapAmount, setSwapAmount] = useState<string>('');
@@ -335,8 +335,13 @@ export function Dashboard() {
       return;
     }
 
-    const selected = mockArkClient.selectCoins(address, amount);
-    setSelectedVtxos(selected.map(v => v.txid));
+    try {
+      const selected = mockArkClient.selectCoins(address, amount);
+      setSelectedVtxos(selected.map(v => v.txid));
+    } catch (error) {
+      console.error('Auto coin selection failed', error);
+      setSelectedVtxos([]);
+    }
   }, [swapAmount, address, isManualSelection]);
 
   // Calculate selected total
@@ -506,6 +511,12 @@ export function Dashboard() {
               <ArrowRightLeft className="h-5 w-5 text-gray-400" />
               <h3 className="text-sm font-medium text-gray-400">Request Swap Quote</h3>
             </div>
+            <p className="text-sm text-gray-400">
+              Spendable Balance:{' '}
+              <span className="font-semibold text-white">
+                {paymentBalance.toLocaleString()} sats
+              </span>
+            </p>
             <p className="text-sm text-gray-500">
               Enter an amount to request a swap quote and generate the lock address
             </p>
@@ -670,8 +681,13 @@ export function Dashboard() {
                               setIsManualSelection(false);
                               const amount = parseFloat(swapAmount);
                               if (!isNaN(amount) && amount > 0 && address) {
-                                const selected = mockArkClient.selectCoins(address, amount);
-                                setSelectedVtxos(selected.map(v => v.txid));
+                                try {
+                                  const selected = mockArkClient.selectCoins(address, amount);
+                                  setSelectedVtxos(selected.map(v => v.txid));
+                                } catch (error) {
+                                  console.error('Auto coin selection reset failed', error);
+                                  setSelectedVtxos([]);
+                                }
                               }
                             }}
                             className="text-xs text-blue-400 hover:text-blue-300"

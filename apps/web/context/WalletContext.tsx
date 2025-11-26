@@ -10,7 +10,10 @@ type ExtendedVtxo = Vtxo & { metadata?: AssetMetadata; assetId?: string };
 
 interface WalletContextType {
   address: string | null;
+  // Total balance including assets
   balance: number;
+  // Spendable balance for payments (excludes asset VTXOs)
+  paymentBalance: number;
   vtxos: ExtendedVtxo[];
   isConnected: boolean;
   isLoading: boolean;
@@ -66,7 +69,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     enabled: !!address,
     queryFn: async () => {
       if (!address) {
-        return { balance: 0, vtxos: [] };
+        return { balance: 0, paymentBalance: 0, vtxos: [] as ExtendedVtxo[] };
       }
       await mockArkClient.fetchFromASP(address);
       
@@ -79,12 +82,16 @@ export function WalletProvider({ children }: { children: ReactNode }) {
       
       // Combine all VTXOs (main + watched)
       const allVtxos = [...mainVtxos, ...watchedVtxos];
-      
-      // Calculate total balance from main address
-      const balance = mockArkClient.getBalance(address);
+
+      // Calculate balances from combined VTXOs
+      const balance = allVtxos.reduce((sum, vtxo) => sum + vtxo.amount, 0);
+      const paymentBalance = allVtxos
+        .filter(vtxo => !vtxo.metadata)
+        .reduce((sum, vtxo) => sum + vtxo.amount, 0);
       
       return {
         balance,
+        paymentBalance,
         vtxos: allVtxos,
       };
     },
@@ -92,6 +99,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
   });
 
   const balance = data?.balance ?? 0;
+  const paymentBalance = data?.paymentBalance ?? 0;
   const vtxos = data?.vtxos ?? [];
   const isLoadingWallet = isLoading || isInitialLoading;
 
@@ -126,6 +134,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
       value={{
         address,
         balance,
+        paymentBalance,
         vtxos,
         isConnected,
         isLoading: isLoadingWallet,

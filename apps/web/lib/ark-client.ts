@@ -233,7 +233,7 @@ export class MockArkClient {
   }
 
   /**
-   * Gets the balance for an address by summing unspent VTXOs
+   * Gets the total balance for an address by summing unspent VTXOs
    */
   getBalance(address: string): number {
     const vtxos = this.getStorage();
@@ -241,6 +241,19 @@ export class MockArkClient {
     const addressVtxos = vtxos[address] ?? [];
     return addressVtxos
       .filter(vtxo => !vtxo.spent && vtxo.address === addressBranded)
+      .reduce((sum, vtxo) => sum + vtxo.amount, 0);
+  }
+
+  /**
+   * Gets the spendable payment balance for an address.
+   * Excludes any VTXOs that have asset metadata attached.
+   */
+  getPaymentBalance(address: string): number {
+    const vtxos = this.getStorage();
+    const addressBranded = asAddress(address);
+    const addressVtxos = vtxos[address] ?? [];
+    return addressVtxos
+      .filter(vtxo => !vtxo.spent && vtxo.address === addressBranded && !vtxo.metadata)
       .reduce((sum, vtxo) => sum + vtxo.amount, 0);
   }
 
@@ -291,9 +304,12 @@ export class MockArkClient {
     // SECURITY FIX: Ensure we only select coins that match the current address
     // This prevents trying to sign coins from a previous wallet session
     const myCoins = unspentVtxos.filter(v => v.address === addressBranded);
-    
-    // Sort by amount descending for better selection
-    const sorted = [...myCoins].sort((a, b) => b.amount - a.amount);
+
+    // Exclude any VTXOs that have asset metadata – these are collectible assets, not payment coins
+    const paymentCandidates = myCoins.filter(v => !v.metadata && !v.spent);
+
+    // Sort by amount descending for better selection (First-Fit on payment candidates only)
+    const sorted = [...paymentCandidates].sort((a, b) => b.amount - a.amount);
     
     let selected: Vtxo[] = [];
     let total = 0;
@@ -304,7 +320,42 @@ export class MockArkClient {
       total += vtxo.amount;
     }
     
+    if (total < targetAmount) {
+      const totalValue = myCoins.reduce((sum, vtxo) => sum + vtxo.amount, 0);
+      const paymentTotal = paymentCandidates.reduce((sum, vtxo) => sum + vtxo.amount, 0);
+
+      // User has enough total value, but too much of it is locked in asset VTXOs
+      if (totalValue >= targetAmount && paymentTotal < targetAmount) {
+        throw new Error('Insufficient Payment Funds');
+      }
+    }
+
     return selected;
+  }
+
+  /**
+   * Selects specific asset VTXOs by txid for game mechanics (breeding, showcase, etc.)
+   * Throws if any requested VTXO is not found for the address or is already spent.
+   */
+  selectAssetCoins(address: string, assetTxIds: string[]): Vtxo[] {
+    const vtxos = this.getStorage();
+    const addressBranded = asAddress(address);
+    const addressVtxos = vtxos[address] ?? [];
+
+    const selectedAssets: Vtxo[] = [];
+
+    for (const txid of assetTxIds) {
+      const brandedTxId = asTxId(txid);
+      const match = addressVtxos.find(vtxo => vtxo.txid === brandedTxId && vtxo.address === addressBranded);
+
+      if (!match || match.spent) {
+        throw new Error('Requested asset VTXO not found or already spent');
+      }
+
+      selectedAssets.push(match);
+    }
+
+    return selectedAssets;
   }
 
   /**
