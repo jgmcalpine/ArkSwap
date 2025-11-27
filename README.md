@@ -150,6 +150,9 @@ While ArkSwap demonstrates *Fungible Value Transfer* (Currency), SatoshiKoi demo
 *   **Taproot Asset Binding:** Mathematically binding Asset Metadata (DNA) to the VTXO via **Taproot Tweaks** (`Pubkey + Hash(AssetData)`). This ensures that the asset cannot be separated from the coin, preventing "fake" assets from circulating.
 *   **Colored Coin Selection:** Upgrading the Wallet Logic to distinguish between "Payment VTXOs" (Gas/Money) and "Asset VTXOs" (Fish), ensuring users never accidentally spend their collectibles as mining fees.
 
+## 🤖 AI-Augmented Development
+This repository was built using an **AI-First workflow**. The architecture, prompts, and debugging strategies were human-directed, while the boilerplate code and cryptographic implementations were generated via LLMs and rigorously audited via E2E testing.
+
 ## 🤝 Contributing
 
 We welcome contributions! Please note that this project deals with financial cryptography, so we enforce strict quality controls.
