@@ -73,3 +73,28 @@ We implemented **Strict Coin Control** at the state management level:
     *   `selectCoins()` (Payment): Explicitly filters `vtxo.metadata === undefined`.
     *   `selectAsset()` (Game): Targets specific TxIDs.
 3.  **Visual Feedback:** Updated the UI to visually distinguish "Money" (Stack of Coins icon) from "Assets" (Fish icon), giving the user confidence that their collectibles are safe from automated fee selection.
+
+## 5. Breeding Signatures (The Identity Mismatch)
+
+### The Challenge
+The `breed` endpoint rejected signatures with `Invalid Schnorr signature`.
+
+### The Root Cause
+The Client was attempting to sign the breeding request using the complex "Double Tweak" logic (used for *moving* assets). However, the Breeding endpoint verifies ownership by deriving the asset addresses from the User's **Base Identity** (Pubkey). It expected a simple signature from the wallet's root key, not the derived asset key.
+
+### The Solution
+We simplified the signing logic for the `breed()` method in `ark-client.ts` to use the **Base Private Key** (with only the standard 0x03 parity check), matching the ASP's expectation that "The owner of the Wallet authorizes the breeding of these two fish."
+
+---
+
+## 6. Client-Side Validation (The Trustless Seal)
+
+### The Challenge
+We needed to prove that the ASP wasn't rigging the RNG to hoard Legendary fish for itself or nerf user outcomes.
+
+### The Solution
+We implemented a **Verify-on-Arrival** system:
+1.  **Entropy Commitment:** The ASP includes the random `entropy` used for breeding in the Child's metadata.
+2.  **Local Replay:** When the Wallet receives a new Child VTXO, it fetches the DNA of both Parents from `localStorage`.
+3.  **Deterministic Check:** The Client runs the shared `mixGenomes` function locally using (ParentA, ParentB, ServerEntropy).
+4.  **The Badge:** If `LocalResult === ServerResult`, the UI displays a green "Verified Genetics" shield. If not, it flags the asset as fraudulent. This forces the server to be honest.

@@ -8,7 +8,7 @@ import { KoiRenderer } from './KoiRenderer';
 import type { DnaTraits, KoiRarity } from '../../hooks/useDnaParser';
 import type { AssetMetadata, Vtxo } from '@arkswap/protocol';
 import { getErrorMessage } from '../../lib/error-utils';
-import { mockArkClient } from '../../lib/ark-client';
+import { mockArkClient } from '@arkswap/client';
 import { asTxId } from '@arkswap/protocol';
 
 export interface KoiDetailModalProps {

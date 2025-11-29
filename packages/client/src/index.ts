@@ -1,4 +1,7 @@
 import { walletTools } from './crypto';
+
+// Re-export walletTools for convenience
+export { walletTools } from './crypto';
 import type { Vtxo, ArkTransaction, ArkInput, ArkOutput, Address, TxId, AssetMetadata } from '@arkswap/protocol';
 import { getTxHash, VtxoSchema, AssetMetadataSchema, asTxId, asAddress, asSignatureHex, createAssetPayToPublicKey, getAssetHash, mixGenomes } from '@arkswap/protocol';
 import { z } from 'zod';
@@ -524,8 +527,6 @@ export class MockArkClient {
    * Returns the transferId (L2 transaction hash)
    */
   async send(amount: number, toAddress: string): Promise<string> {
-    const { bitcoin, ECPair, network } = walletTools;
-    const keyPair = await this.getKeyPair();
     const myAddress = await this.getAddress();
     
     if (!myAddress) {
@@ -1254,3 +1255,4 @@ export class MockArkClient {
 
 // Export a singleton instance (constructor is empty, so this is safe)
 export const mockArkClient = new MockArkClient();
+

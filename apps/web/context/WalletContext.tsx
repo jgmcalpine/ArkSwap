@@ -2,7 +2,7 @@
 
 import { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { mockArkClient } from '../lib/ark-client';
+import { mockArkClient } from '@arkswap/client';
 import type { Vtxo, AssetMetadata } from '@arkswap/protocol';
 
 // Extended VTXO type that may include asset metadata

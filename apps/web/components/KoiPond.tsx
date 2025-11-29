@@ -4,7 +4,7 @@ import { useState, useEffect, useRef, type MouseEventHandler } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Fish, Eye, TrendingUp, Loader2 } from 'lucide-react';
 import { cn } from '../lib/utils';
-import { mockArkClient } from '../lib/ark-client';
+import { mockArkClient } from '@arkswap/client';
 import type { Vtxo, AssetMetadata } from '@arkswap/protocol';
 import { getErrorMessage } from '../lib/error-utils';
 import { parseDna, type DnaTraits, type KoiRarity } from '../hooks/useDnaParser';

@@ -1,10 +1,7 @@
-import { MockArkClient } from './ark-client';
-import { walletTools } from './crypto';
+import { MockArkClient, walletTools } from '@arkswap/client';
 import { asTxId, asAddress, getAssetHash, createAssetPayToPublicKey } from '@arkswap/protocol';
 import type { Vtxo, AssetMetadata } from '@arkswap/protocol';
-import * as bitcoin from 'bitcoinjs-lib';
 import { createHash } from 'crypto';
-import ecc from '@bitcoinerlab/secp256k1';
 
 // Mock fetch globally for breeding tests
 global.fetch = jest.fn();
@@ -125,6 +122,7 @@ describe('MockArkClient - Pond Entry Signing', () => {
       const messageHashBuffer = Buffer.from(messageHash);
       
       // 2. Decode address to get pubkey (server extracts from Taproot script)
+      const { bitcoin } = walletTools;
       const outputScript = bitcoin.address.toOutputScript(walletAddress, bitcoin.networks.regtest);
       
       // Taproot Script is: OP_1 (0x51) <32-byte-pubkey>
@@ -188,8 +186,10 @@ describe('MockArkClient - Pond Entry Signing', () => {
       const basePubkey = walletPubkey;
 
       // Step 2: Apply Asset Tweak (same as signPondEntry does)
+      const { ecc } = walletTools;
       const assetTweak = getAssetHash(mockMetadata);
-      const assetTweakResult = ecc.xOnlyPointAddTweak(basePubkey, assetTweak);
+      // xOnlyPointAddTweak is available on the actual ecc library but not in our interface
+      const assetTweakResult = (ecc as any).xOnlyPointAddTweak(basePubkey, assetTweak);
       if (!assetTweakResult || !assetTweakResult.xOnlyPubkey) {
         throw new Error('Failed to apply asset tweak');
       }
@@ -197,8 +197,10 @@ describe('MockArkClient - Pond Entry Signing', () => {
 
       // Step 3: Apply Taproot Tweak (BIP-86)
       // The signing code uses the asset pubkey as the internal pubkey for Taproot tweak
+      const { bitcoin } = walletTools;
       const tapTweak = bitcoin.crypto.taggedHash('TapTweak', assetPubkey);
-      const finalTweakResult = ecc.xOnlyPointAddTweak(assetPubkey, tapTweak);
+      // xOnlyPointAddTweak is available on the actual ecc library but not in our interface
+      const finalTweakResult = (ecc as any).xOnlyPointAddTweak(assetPubkey, tapTweak);
       if (!finalTweakResult || !finalTweakResult.xOnlyPubkey) {
         throw new Error('Failed to apply Taproot tweak');
       }
@@ -370,6 +372,7 @@ describe('MockArkClient - breed signature verification', () => {
     // This replicates the exact server-side verification logic from signature-verifier.service.ts
     // The server calls: ecc.verifySchnorr(messageHash, baseWalletPubkey, signature)
     // The client signs with: base wallet private key (after parity check, no tweaking)
+    const { ecc } = walletTools;
     const isValid = ecc.verifySchnorr(messageHashBuffer, pubkeyBuffer, signatureBuffer);
 
     // ASSERTION:

@@ -6,7 +6,7 @@ import { X, Loader2 } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { KoiCard } from './KoiCard';
 import { KoiRenderer } from './KoiRenderer';
-import { mockArkClient } from '../../lib/ark-client';
+import { mockArkClient } from '@arkswap/client';
 import type { Vtxo, AssetMetadata } from '@arkswap/protocol';
 import { getErrorMessage } from '../../lib/error-utils';
 import { parseDna, type KoiRarity } from '../../hooks/useDnaParser';
