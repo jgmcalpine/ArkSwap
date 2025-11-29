@@ -61,13 +61,10 @@ jobs:
       - name: Install Dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: 🏗️ Build Shared Protocol
-        # We must build the shared library so the Next.js app can resolve it
-        run: pnpm --filter @arkswap/protocol build
-
-      - name: 🏗️ Build Client
-        # We must build the client library so the Next.js app can resolve it
-        run: pnpm --filter @arkswap/client build
+      - name: 🏗️ Build Shared Libraries
+        run: |
+          pnpm --filter @arkswap/protocol build
+          pnpm --filter @arkswap/client build
 
       - name: 🎭 Install Playwright Browsers
         run: pnpm --filter @arkswap/web exec playwright install --with-deps chromium
