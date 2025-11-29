@@ -6,14 +6,12 @@ on:
   pull_request:
     branches: [ main, master ]
 
-# Prevent duplicate runs if a new commit is pushed to the same PR
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
-  # JOB 1: Code Quality & Unit Logic (Fast)
-  # This covers Linting, Type Checking, and Protocol Math (Fuzzing)
+  # JOB 1: Code Quality & Unit Logic
   quality:
     name: 🛡️ Code Quality & Unit Tests
     runs-on: ubuntu-latest
@@ -36,14 +34,13 @@ jobs:
       - name: 📐 Type Check
         run: pnpm turbo type-check
 
-      - name: 🧪 Protocol Unit Tests (Includes Fuzzing)
+      - name: 🧪 Protocol Unit Tests
         run: pnpm --filter @arkswap/protocol test
 
       - name: 🧪 Client Unit Tests
         run: pnpm --filter @arkswap/client test
 
-  # JOB 2: End-to-End Assurance (Slow & heavy)
-  # This spins up Docker and runs Playwright against the real stack
+  # JOB 2: End-to-End Assurance
   e2e:
     name: 🤖 End-to-End Tests
     runs-on: ubuntu-latest
@@ -62,9 +59,8 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: 🏗️ Build Shared Libraries
-        run: |
-          pnpm --filter @arkswap/protocol build
-          pnpm --filter @arkswap/client build
+        # Use Turbo to build client AND its dependencies (protocol) in order
+        run: pnpm turbo build --filter=@arkswap/client...
 
       - name: 🎭 Install Playwright Browsers
         run: pnpm --filter @arkswap/web exec playwright install --with-deps chromium
@@ -74,39 +70,31 @@ jobs:
           cd docker
           docker compose up -d --build
           echo "Waiting for Bitcoin & ASP to initialize..."
-          # Use npx wait-on to block until ports are listening
-          # 7070 = ASP, 18443 = Bitcoin RPC
           npx wait-on tcp:127.0.0.1:7070 tcp:127.0.0.1:18443 --timeout 60000
 
       - name: ⛏️ Initialize Blockchain (God Mode)
-        # Now that Docker is ready, we mine blocks to mature coins
         run: |
           chmod +x scripts/*.sh
           ./scripts/mine.sh 101
-          # Sanity check the ASP info endpoint
           curl -v http://127.0.0.1:7070/v1/info
 
       - name: 🚀 Start App Servers (Background)
-        # Start Next.js (Web) and NestJS (API) in the background
-        # IMPORTANT: Exclude ASP because it is already running in Docker!
+        # Start Web and API. Exclude ASP (Docker).
+        # Note: Next.js will now find the built 'dist' folders from the previous step.
         run: |
-          pnpm dev --filter=!@arkswap/asp &
+          pnpm dev --filter='!@arkswap/asp' &
           echo "App servers starting in background..."
 
       - name: ⏳ Wait for Services
-        # Block until the App servers are responding HTTP 200 (or accepting connections)
-        # This moves the "Boot Time" out of the "Test Time"
         run: |
           echo "Waiting for Web (3000) and API (3001)..."
           npx wait-on http://127.0.0.1:3000 http://127.0.0.1:3001 --timeout 120000
 
       - name: 💰 Fund Market Maker
-        # Now we KNOW the API is up, so we can fund the backend wallet safely
         run: |
           curl -X POST http://127.0.0.1:3001/faucet/maker
 
       - name: 🧪 Run Playwright E2E
-        # The environment is fully prepped. Run the test.
         run: pnpm --filter @arkswap/web test:e2e
         env:
           CI: true
