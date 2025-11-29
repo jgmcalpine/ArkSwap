@@ -9,7 +9,7 @@
 >
 > This code is **UNAUDITED** and contains intentional architectural shortcuts for demonstration purposes. Using this software with real value will result in **TOTAL LOSS OF FUNDS**.
 
-# ArkSwap
+# ArkSwap & SatoshiKoi
 
 **A Reference Implementation for Programmable Ark Transactions.**
 
@@ -20,74 +20,81 @@
 
 ## 🌊 Overview
 
-**ArkSwap** is a **research prototype** and **reference implementation** designed to explore the programmable nature of the **Ark Layer 2 Protocol**. It simulates a trustless atomic swap architecture where **Ark VTXOs** are exchanged for **Bitcoin Layer 1** funds within a controlled **Regtest** environment.
+This repository is a **research prototype** designed to explore the limits of the **Ark Layer 2 Protocol**. It demonstrates that Ark is not just a payment rail, but a transport layer for programmable Bitcoin logic.
 
-ArkSwap serves as an educational proof-of-concept for **Off-Chain Programmability**. It provides a working demonstration of how an Ark Service Provider (ASP) can process transfers that **target VTXOs encumbered by custom Taproot HTLCs** (Hash Time-Locked Contracts), illustrating how advanced conditional logic can exist natively within Ark protocol rounds.
+The project contains two distinct reference implementations:
 
-## 📖 User Story: The Sovereign Exit
+1.  **ArkSwap:** A trustless atomic swap architecture where Ark VTXOs are exchanged for Bitcoin Layer 1 funds using custom **Taproot HTLCs**.
+2.  **SatoshiKoi:** A stateful asset protocol where VTXOs carry unique metadata (DNA). It demonstrates **Client-Side Validation** and **Cryptographic Asset Binding** to enable non-fungible assets on Bitcoin L2.
 
-**Meet Elena**, a freelancer who gets paid in Bitcoin. She uses **Ark (Layer 2)** for her weekly paycheck because it's instant, private, and works even when her wallet is offline.
+Both projects run within a controlled **Regtest** environment using a custom-built Ark Service Provider (ASP).
 
-But Elena doesn't want to keep her life savings on a Layer 2 hot wallet. She wants to move them to her **Hardware Wallet (Layer 1)** for long-term security.
+## 📖 User Stories
 
-### The Problem
-Moving money from L2 to L1 usually requires:
-1.  **A Centralized Exchange:** Requires trusting a custodian.
-2.  **Individual On-Chain Transactions:** Paying a variable mining fee every single week is expensive and permanently ties her on-chain addresses to her employer.
+To understand the utility of these protocols, we follow two users interacting with the same underlying ledger.
 
-### The ArkSwap Solution
-Elena uses ArkSwap as her **trustless bridge**.
+### 1. The Sovereign Exit (ArkSwap)
+**Meet Elena**, a freelancer who gets paid in Bitcoin via Ark (Layer 2) for speed and privacy. She wants to move her savings to a Hardware Wallet (Layer 1) without using a centralized exchange (KYC).
 
-1.  **The Batch:** She accumulates 4 weekly paychecks in her Ark Wallet.
-2.  **The Swap:** She uses ArkSwap to convert all 4 VTXOs into a single Bitcoin L1 transaction sent directly to her cold storage.
-3.  **The Savings:** Instead of paying 4 mining fees, she pays just **one**.
+*   **The Problem:** On-chain payments are expensive and slow. Lightning requires liveness.
+*   **The Solution:** Elena accumulates 4 weekly paychecks (VTXOs) and uses **ArkSwap** to batch them into a single L1 transaction.
+*   **The Security:** She sends her funds to a **Smart Contract (HTLC)**. If the Market Maker pays her on L1, they get the VTXOs. If they fail to pay, the contract unlocks, and she reclaims her funds via the "Refund" button.
 
-**The Critical Difference:**
-ArkSwap is not an exchange. Elena sends her funds to a **Smart Contract (HTLC)**, not a company wallet.
-*   **If it works:** She gets her Bitcoin on L1 instantly.
-*   **If it fails:** The contract automatically unlocks, and she reclaims her funds via the "Refund" button.
+### 2. The Piggy Bank Collectible (SatoshiKoi)
+**Meet Kenji**, a collector who wants to play a game on Bitcoin without paying $10 in mining fees for every move.
 
-**Elena moves from "Cash" (Ark) to "Gold" (Bitcoin) without ever trusting a third party, at the cadence that works best for her financial and security goals.**
+*   **The Concept:** Kenji mints a "SatoshiKoi." This isn't just a JPEG link; the Fish **IS** the VTXO.
+*   **Game Theory:** To breed a rare fish, Kenji must pay a fee and "burn" two parent VTXOs to create a child.
+*   **Time as a Resource:** The fish grows larger the longer the VTXO remains unspent (Coin Age).
+*   **The Value:** If Kenji gets bored, he can "Smash the Piggy Bank." He performs a Unilateral Exit to Layer 1. The art (metadata) is lost, but the **1,000 sats** stored inside the fish are returned to his Bitcoin wallet.
 
-## 🧩 What's Real vs. Simulated
+## 🧠 Technical Deep Dive: Under the Hood
 
-ArkSwap is designed as a **Research Prototype** operating within a **Local Regtest Simulation**.
+This repo implements complex Bitcoin cryptography from scratch to achieve these features.
 
-The codebase executes valid Bitcoin cryptographic primitives to demonstrate the logic of atomic swaps, but abstracts the expensive network settlement layers to create a lightweight educational environment.
+### 1. The "Smart Contract" Factory (ArkSwap)
+**File:** `packages/protocol/src/script.ts`
+*   **The Mechanics:** We utilize a **NUMS (Nothing Up My Sleeve) Point** as the internal key for our Taproot address. This cryptographically disables the default key-spending path, forcing funds to be spent only via specific script paths (Claim via Preimage or Refund via Timelock).
+
+### 2. The Double Tweak (SatoshiKoi)
+**File:** `apps/web/lib/ark-client.ts`
+*   **The Mechanics:** Standard Ark VTXOs use a single tweak (`Pubkey + TapTweak`). For Assets, we implemented a **Double Tweak** (`Pubkey + AssetHash + TapTweak`).
+*   **The Result:** The VTXO's address is mathematically bound to its DNA. You cannot change the asset data without changing the address, effectively making the asset immutable. The Client performs manual Elliptic Curve addition to derive the correct signing keys for these complex assets.
+
+### 3. Client-Side Validation (Game Logic)
+**File:** `apps/web/lib/ark-client.ts` (verifyGenetics)
+*   **The Mechanics:** The ASP (Server) runs the breeding algorithm, but the Client does not trust it. When a new Fish arrives, the Client locally re-runs the genetic math (`mixGenomes`). If the ASP's result deviates even by a single bit from the protocol rules, the Client rejects the asset.
+
+### 4. The Protocol Validator (ASP)
+**File:** `apps/asp/src/transfer/transfer.service.ts`
+*   **The Mechanics:** The ASP acts as the consensus layer. It extracts the raw 32-byte Public Key from the Bech32m address and performs cryptographic verification of Schnorr signatures. It enforces the rules of the network, ensuring no user can double-spend a VTXO.
+
+## 🧩 Architecture Status: Real vs. Simulation
+
+ArkSwap is designed as a **Research Prototype**. The codebase executes valid Bitcoin cryptographic primitives, but abstracts the expensive network settlement layers for development speed.
 
 | Component | Status | Description |
 | :--- | :--- | :--- |
-| **Cryptography** | ✅ **Real** | We implement raw **Schnorr Signatures**, **BIP-86 Key Tweaking**, and **Taproot Address** derivation using standard Bitcoin libraries. |
-| **Smart Contracts** | ✅ **Real** | We compile actual **Bitcoin Script** (HTLCs) into Taproot Merkle Trees. The script logic matches the Ark protocol specification. |
-| **Blockchain Node** | ✅ **Real** | We run a genuine **Bitcoin Core** node (Regtest). Time travel and block height are enforced by the actual daemon, not a database counter. |
-| **Market Maker** | ⚠️ **Hybrid** | The trading logic (quoting, locking, verifying) functions autonomously, but it is funded with **Regtest Bitcoin** for demonstration purposes. |
-| **ASP (Network)** | ⚠️ **Hybrid** | The ASP performs real **Input Validation** (checking signatures against pubkeys), but it "mocks" the final **L1 Broadcast** of the Round Transaction. |
-| **Onboarding (Lift)** | ❌ **Mocked** | L1 -> L2 deposits are triggered via an API call for instant feedback, rather than waiting for an L1 funding transaction to confirm. |
+| **Cryptography** | ✅ **Native** | Raw **Schnorr Signatures**, **BIP-86 Key Tweaking**, and **Taproot Address** derivation are fully implemented. |
+| **Smart Contracts** | ✅ **Native** | Actual **Bitcoin Script** (HTLCs) compiled into Taproot Merkle Trees. |
+| **Blockchain** | ✅ **Native** | Runs a genuine **Bitcoin Core** node (Regtest). |
+| **Market Maker** | ⚠️ **Hybrid** | Real trading logic funded with Regtest Bitcoin. |
+| **ASP (Network)** | ⚠️ **Hybrid** | Validates inputs cryptographically, but "mocks" the final L1 Broadcast of the Round Transaction. |
+| **Onboarding** | ❌ **Mocked** | L1 -> L2 deposits are triggered via API for instant feedback. |
 
 ## 🛠 Tech Stack
 
-This project is organized as a **TurboRepo** monorepo representing a complete L2 ecosystem.
-
-*   **Apps:**
-    *   `apps/web`: **Next.js 14** - The client-side **Ark Wallet**. Features **TanStack Query** for reactive state, **Zod** for runtime validation, and **Coin Control** for UTXO management.
-    *   `apps/asp`: **NestJS** - A custom, lightweight **Ark Service Provider**. It coordinates rounds, manages the VTXO set, and validates programmable transfers via Schnorr signatures.
-    *   `apps/api`: **NestJS** - The **Market Maker** backend. It quotes swaps, watches the ASP for locked funds, and broadcasts L1 Bitcoin transactions.
-*   **Packages:**
-    *   `packages/protocol`: Shared **TypeScript** library containing the core Bitcoin/Ark cryptographic logic (HTLC scripts, deterministic hashing, witness construction).
-*   **Infrastructure:**
-    *   **Docker:** Orchestrates the local "Universe": Bitcoin Core (Regtest), ASP, Postgres, and Redis.
-    *   **Playwright:** End-to-End testing suite ensuring the critical path works from Lift to Swap to Exit.
+*   **Apps:** `Next.js` (Wallet/UI), `NestJS` (ASP/Market Maker).
+*   **Libs:** `@bitcoinerlab/secp256k1` (ECC), `bitcoinjs-lib` (Transactions), `Zod` (Validation), `TanStack Query` (State).
+*   **Infra:** `Docker`, `Postgres`, `Redis`, `Playwright`.
 
 ## 🚀 Getting Started
 
-Follow these steps to run the entire ArkSwap ecosystem locally.
-
 ### Prerequisites
-*   **Node.js** (v18+) & **pnpm**
-*   **Docker Desktop** (Running)
+*   Node.js (v18+) & pnpm
+*   Docker Desktop
 
 ### 1. Installation
-Clone the repo and install dependencies.
 ```bash
 git clone https://github.com/jgmcalpine/arkswap.git
 cd arkswap
@@ -133,22 +140,14 @@ curl -X POST http://localhost:3001/faucet/maker
 
 Visit ```localhost:3000``` and you will see the frontend for the app.
 
-**Happy Path:**
+**Happy Swap Path:**
 Connect Wallet --> Deposit --> Set amount to swap --> Request Quote --> Enter L1 Address (```docker exec -it bitcoind bitcoin-cli -regtest -rpcuser=ark -rpcpassword=ark getnewaddress```) --> Confirm Swap --> Boom! Trustless swapping from L2 back to L1.
 
-**Something Went Wrong Path:**
+**Something Went Wrong Swap Path:**
 Connect Wallet --> Deposit --> Set amount to swap --> Check 'Simulate Backend Crash' --> Request Quote --> Enter L1 Address --> Confirm Swap --> Move blockchain forward 24 blocks (```./scripts/mine.sh 24```) --> Claim Refund --> Boom! Even if the Market Maker disappears, your funds are yours.
 
-## 🚧 Phase 2: SatoshiKoi (Ark Assets Protocol)
-
-We are currently expanding this repository to include **SatoshiKoi**, a reference implementation of the **Ark Assets Protocol**.
-
-While ArkSwap demonstrates *Fungible Value Transfer* (Currency), SatoshiKoi demonstrates **Non-Fungible State Transitions** (Unique Assets) within the Ark architecture.
-
-**The Research Scope:**
-*   **Client-Side Validation:** Implementing "Genetics" as a deterministic protocol rule. The Client validates that state transitions (Breeding) performed by the ASP match the mathematical rules of the protocol.
-*   **Taproot Asset Binding:** Mathematically binding Asset Metadata (DNA) to the VTXO via **Taproot Tweaks** (`Pubkey + Hash(AssetData)`). This ensures that the asset cannot be separated from the coin, preventing "fake" assets from circulating.
-*   **Colored Coin Selection:** Upgrading the Wallet Logic to distinguish between "Payment VTXOs" (Gas/Money) and "Asset VTXOs" (Fish), ensuring users never accidentally spend their collectibles as mining fees.
+**Mint a few SatoshiKoi and breed them:**
+Check the specific attributes of a SatoshiKoi and notice the DNA is verified, this is client-side validation in action!
 
 ## 🤖 AI-Augmented Development
 This repository was built using an **AI-First workflow**. The architecture, prompts, and debugging strategies were human-directed, while the boilerplate code and cryptographic implementations were generated via LLMs and rigorously audited via E2E testing.
