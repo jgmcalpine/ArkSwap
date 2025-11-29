@@ -1,4 +1,4 @@
-import { MockArkClient, walletTools } from '@arkswap/client';
+import { MockArkClient, walletTools } from '../src/index';
 import { asTxId, asAddress, getAssetHash, createAssetPayToPublicKey } from '@arkswap/protocol';
 import type { Vtxo, AssetMetadata } from '@arkswap/protocol';
 import { createHash } from 'crypto';
