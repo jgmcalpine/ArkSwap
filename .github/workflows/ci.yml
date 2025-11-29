@@ -39,6 +39,9 @@ jobs:
       - name: 🧪 Protocol Unit Tests (Includes Fuzzing)
         run: pnpm --filter @arkswap/protocol test
 
+      - name: 🧪 Client Unit Tests
+        run: pnpm --filter @arkswap/client test
+
   # JOB 2: End-to-End Assurance (Slow & heavy)
   # This spins up Docker and runs Playwright against the real stack
   e2e:
@@ -61,6 +64,10 @@ jobs:
       - name: 🏗️ Build Shared Protocol
         # We must build the shared library so the Next.js app can resolve it
         run: pnpm --filter @arkswap/protocol build
+
+      - name: 🏗️ Build Client
+        # We must build the client library so the Next.js app can resolve it
+        run: pnpm --filter @arkswap/client build
 
       - name: 🎭 Install Playwright Browsers
         run: pnpm --filter @arkswap/web exec playwright install --with-deps chromium
