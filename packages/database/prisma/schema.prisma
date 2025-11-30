@@ -1,0 +1,43 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model AspDefinition {
+  id          String    @id @default(uuid())
+  name        String
+  poolAddress String
+  isProduction Boolean  @default(false)
+  rounds      ArkRound[]
+
+  @@map("asp_definitions")
+}
+
+model ScannedBlock {
+  height      Int       @id
+  hash        String
+  processedAt DateTime  @default(now())
+
+  @@map("scanned_blocks")
+}
+
+model ArkRound {
+  txid        String    @id
+  aspId       String
+  blockHeight Int
+  timestamp   DateTime
+  inputAmount BigInt
+  outputAmount BigInt
+  vtxoCount   Int
+  asp         AspDefinition @relation(fields: [aspId], references: [id], onDelete: Cascade)
+
+  @@map("ark_rounds")
+}
+
