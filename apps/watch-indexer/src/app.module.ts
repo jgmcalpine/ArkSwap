@@ -10,4 +10,3 @@ import { ScannerService } from './scanner.service';
   providers: [BitcoinService, ScannerService],
 })
 export class AppModule {}
-

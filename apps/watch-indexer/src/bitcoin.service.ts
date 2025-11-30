@@ -68,4 +68,3 @@ export class BitcoinService {
     return this.callRPC<BlockData>('getblock', [hash, verbosity]);
   }
 }
-

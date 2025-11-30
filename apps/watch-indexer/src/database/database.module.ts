@@ -1,8 +1,16 @@
-import { Module, OnModuleInit, OnModuleDestroy, Injectable } from '@nestjs/common';
+import {
+  Module,
+  OnModuleInit,
+  OnModuleDestroy,
+  Injectable,
+} from '@nestjs/common';
 import { PrismaClient } from '@prisma/client';
 
 @Injectable()
-export class PrismaService extends PrismaClient implements OnModuleInit, OnModuleDestroy {
+export class PrismaService
+  extends PrismaClient
+  implements OnModuleInit, OnModuleDestroy
+{
   async onModuleInit() {
     await this.$connect();
   }
@@ -22,7 +30,7 @@ export class DatabaseModule implements OnModuleInit {
   async onModuleInit() {
     // Seed data: Check if AspDefinition is empty, if so insert Local Docker ASP
     const aspCount = await this.prisma.aspDefinition.count();
-    
+
     if (aspCount === 0) {
       await this.prisma.aspDefinition.create({
         data: {
@@ -35,4 +43,3 @@ export class DatabaseModule implements OnModuleInit {
     }
   }
 }
-

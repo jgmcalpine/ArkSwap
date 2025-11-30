@@ -23,7 +23,9 @@ export class ScannerService {
     try {
       await this.sync();
     } catch (error) {
-      this.logger.error(`Error during sync: ${error instanceof Error ? error.message : String(error)}`);
+      this.logger.error(
+        `Error during sync: ${error instanceof Error ? error.message : String(error)}`,
+      );
     }
   }
 
@@ -55,9 +57,6 @@ export class ScannerService {
         // Fetch block hash
         const blockHash = await this.bitcoinService.getBlockHash(nextHeight);
 
-        // Fetch full block data
-        const blockData = await this.bitcoinService.getBlock(blockHash, 2);
-
         // Save to database (upsert in case of re-scan)
         await this.prisma.scannedBlock.upsert({
           where: { height: nextHeight },
@@ -72,7 +71,9 @@ export class ScannerService {
           },
         });
 
-        this.logger.log(`Block ${nextHeight} processed successfully (hash: ${blockHash})`);
+        this.logger.log(
+          `Block ${nextHeight} processed successfully (hash: ${blockHash})`,
+        );
 
         // Move to next block
         currentHeight++;
@@ -90,4 +91,3 @@ export class ScannerService {
     }
   }
 }
-
