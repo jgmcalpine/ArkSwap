@@ -9,6 +9,7 @@
     "clean": "rm -rf dist",
     "type-check": "tsc --noEmit",
     "generate": "prisma generate",
+    "postinstall": "prisma generate",
     "migrate": "prisma migrate dev",
     "studio": "prisma studio",
     "db:push": "prisma db push",
