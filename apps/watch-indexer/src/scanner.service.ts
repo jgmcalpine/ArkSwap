@@ -2,6 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { Interval } from '@nestjs/schedule';
 import { BitcoinService } from './bitcoin.service';
 import { PrismaService } from './database/database.module';
+import { ParserService } from './parser.service';
 
 @Injectable()
 export class ScannerService {
@@ -11,6 +12,7 @@ export class ScannerService {
   constructor(
     private readonly bitcoinService: BitcoinService,
     private readonly prisma: PrismaService,
+    private readonly parserService: ParserService,
   ) {}
 
   @Interval(5000)
@@ -56,6 +58,12 @@ export class ScannerService {
 
         // Fetch block hash
         const blockHash = await this.bitcoinService.getBlockHash(nextHeight);
+
+        // Fetch full block data (verbosity=2) for parsing
+        const blockData = await this.bitcoinService.getBlock(blockHash, 2);
+
+        // Parse block for Ark rounds BEFORE marking it as scanned
+        await this.parserService.parseBlock(blockData);
 
         // Save to database (upsert in case of re-scan)
         await this.prisma.scannedBlock.upsert({

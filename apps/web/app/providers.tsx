@@ -14,7 +14,7 @@ export function Providers({ children }: { children: ReactNode }) {
             refetchInterval: 5000,
           },
         },
-      })
+      }),
   );
 
   return (
@@ -24,4 +24,3 @@ export function Providers({ children }: { children: ReactNode }) {
     </QueryClientProvider>
   );
 }
-

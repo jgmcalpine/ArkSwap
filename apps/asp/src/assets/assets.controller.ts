@@ -1,4 +1,11 @@
-import { Controller, Get, Post, Body, Param, BadRequestException } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Param,
+  BadRequestException,
+} from '@nestjs/common';
 import { randomBytes } from 'crypto';
 import { AssetStore } from './asset.store';
 import { RoundService } from '../round.service';
@@ -61,7 +68,7 @@ export class AssetsController {
       epic: 0,
       legendary: 0,
     };
-    
+
     return {
       total,
       distribution,
@@ -78,22 +85,33 @@ export class AssetsController {
   @Post()
   saveMetadata(@Body() body: SaveMetadataDto): { success: boolean } {
     if (!body.txid || !body.metadata) {
-      throw new BadRequestException('Invalid request: txid and metadata are required');
+      throw new BadRequestException(
+        'Invalid request: txid and metadata are required',
+      );
     }
 
     try {
       // Validate metadata using Zod schema
-      const validatedMetadata = AssetMetadataSchema.parse(body.metadata) as AssetMetadata;
+      const validatedMetadata = AssetMetadataSchema.parse(
+        body.metadata,
+      ) as AssetMetadata;
 
       this.store.saveMetadata(body.txid, validatedMetadata);
 
       return { success: true };
     } catch (error) {
       // Check if error is a ZodError by checking for the 'issues' property
-      if (error && typeof error === 'object' && 'issues' in error && Array.isArray((error as { issues: unknown[] }).issues)) {
-        const zodError = error as { issues: Array<{ path: (string | number)[]; message: string }> };
+      if (
+        error &&
+        typeof error === 'object' &&
+        'issues' in error &&
+        Array.isArray((error as { issues: unknown[] }).issues)
+      ) {
+        const zodError = error as {
+          issues: Array<{ path: (string | number)[]; message: string }>;
+        };
         throw new BadRequestException(
-          `Validation failed: ${zodError.issues.map((e) => `${e.path.join('.')}: ${e.message}`).join(', ')}`
+          `Validation failed: ${zodError.issues.map((e) => `${e.path.join('.')}: ${e.message}`).join(', ')}`,
         );
       }
       throw error;
@@ -101,16 +119,25 @@ export class AssetsController {
   }
 
   @Post('genesis')
-  async genesis(@Body() body: GenesisRequestDto): Promise<{ success: boolean; address: string; status: string; metadata: AssetMetadata }> {
+  async genesis(@Body() body: GenesisRequestDto): Promise<{
+    success: boolean;
+    address: string;
+    status: string;
+    metadata: AssetMetadata;
+  }> {
     const { userPubkey, amount } = body;
 
     if (!userPubkey || typeof amount !== 'number' || amount <= 0) {
-      throw new BadRequestException('Invalid request: userPubkey and positive amount are required');
+      throw new BadRequestException(
+        'Invalid request: userPubkey and positive amount are required',
+      );
     }
 
     // Validate userPubkey is 64 hex characters (32 bytes)
     if (!/^[0-9a-fA-F]{64}$/.test(userPubkey)) {
-      throw new BadRequestException('userPubkey must be 64 hex characters (32 bytes)');
+      throw new BadRequestException(
+        'userPubkey must be 64 hex characters (32 bytes)',
+      );
     }
 
     try {
@@ -152,22 +179,30 @@ export class AssetsController {
       if (error instanceof BadRequestException) {
         throw error;
       }
-      throw new BadRequestException(`Failed to create genesis asset: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw new BadRequestException(
+        `Failed to create genesis asset: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      );
     }
   }
 
   @Post('feed')
-  async feed(@Body() body: FeedRequestDto): Promise<{ success: boolean; metadata: AssetMetadata }> {
+  async feed(
+    @Body() body: FeedRequestDto,
+  ): Promise<{ success: boolean; metadata: AssetMetadata }> {
     const { txid, signature, message } = body;
 
     if (!txid || !signature || !message) {
-      throw new BadRequestException('Invalid request: txid, signature, and message are required');
+      throw new BadRequestException(
+        'Invalid request: txid, signature, and message are required',
+      );
     }
 
     // 1. Verify message format (expecting "Feed <txid>")
     const expectedMessage = `Feed ${txid}`;
     if (message !== expectedMessage) {
-      throw new BadRequestException(`Invalid message format. Expected: "${expectedMessage}"`);
+      throw new BadRequestException(
+        `Invalid message format. Expected: "${expectedMessage}"`,
+      );
     }
 
     // 2. Get VTXO from Store and verify it exists and is !spent
@@ -187,8 +222,12 @@ export class AssetsController {
     }
 
     // 4. Verify Signature
-    const isValid = this.signatureVerifier.verifySignatureFromAddress(message, signature, vtxo.address);
-    
+    const isValid = this.signatureVerifier.verifySignatureFromAddress(
+      message,
+      signature,
+      vtxo.address,
+    );
+
     if (!isValid) {
       throw new BadRequestException(`Invalid Schnorr signature for ${txid}`);
     }
@@ -211,21 +250,29 @@ export class AssetsController {
   }
 
   @Post('breed')
-  async breed(@Body() body: BreedRequestDto): Promise<{ success: boolean; child: AssetMetadata }> {
+  async breed(
+    @Body() body: BreedRequestDto,
+  ): Promise<{ success: boolean; child: AssetMetadata }> {
     const { parent1Id, parent2Id, userPubkey, signature } = body;
 
     if (!parent1Id || !parent2Id || !userPubkey || !signature) {
-      throw new BadRequestException('Invalid request: parent1Id, parent2Id, userPubkey, and signature are required');
+      throw new BadRequestException(
+        'Invalid request: parent1Id, parent2Id, userPubkey, and signature are required',
+      );
     }
 
     // Validate userPubkey format
     if (!/^[0-9a-fA-F]{64}$/.test(userPubkey)) {
-      throw new BadRequestException('userPubkey must be 64 hex characters (32 bytes)');
+      throw new BadRequestException(
+        'userPubkey must be 64 hex characters (32 bytes)',
+      );
     }
 
     // Validate signature format (128 hex chars = 64 bytes)
     if (!/^[0-9a-fA-F]{128}$/.test(signature)) {
-      throw new BadRequestException('signature must be 128 hex characters (64 bytes)');
+      throw new BadRequestException(
+        'signature must be 128 hex characters (64 bytes)',
+      );
     }
 
     try {
@@ -246,11 +293,15 @@ export class AssetsController {
       }
 
       if (parent1Vtxo.spent) {
-        throw new BadRequestException(`Parent 1 VTXO already spent: ${parent1Id}`);
+        throw new BadRequestException(
+          `Parent 1 VTXO already spent: ${parent1Id}`,
+        );
       }
 
       if (parent2Vtxo.spent) {
-        throw new BadRequestException(`Parent 2 VTXO already spent: ${parent2Id}`);
+        throw new BadRequestException(
+          `Parent 2 VTXO already spent: ${parent2Id}`,
+        );
       }
 
       // Get metadata for both parents
@@ -267,15 +318,25 @@ export class AssetsController {
 
       // Verify ownership: Recreate asset addresses from userPubkey + metadata and compare
       const userPubkeyBuffer = Buffer.from(userPubkey, 'hex');
-      const parent1ExpectedAddress = createAssetPayToPublicKey(userPubkeyBuffer, parent1Metadata);
-      const parent2ExpectedAddress = createAssetPayToPublicKey(userPubkeyBuffer, parent2Metadata);
+      const parent1ExpectedAddress = createAssetPayToPublicKey(
+        userPubkeyBuffer,
+        parent1Metadata,
+      );
+      const parent2ExpectedAddress = createAssetPayToPublicKey(
+        userPubkeyBuffer,
+        parent2Metadata,
+      );
 
       if (parent1Vtxo.address !== parent1ExpectedAddress) {
-        throw new BadRequestException(`Parent 1 ownership verification failed: address mismatch`);
+        throw new BadRequestException(
+          `Parent 1 ownership verification failed: address mismatch`,
+        );
       }
 
       if (parent2Vtxo.address !== parent2ExpectedAddress) {
-        throw new BadRequestException(`Parent 2 ownership verification failed: address mismatch`);
+        throw new BadRequestException(
+          `Parent 2 ownership verification failed: address mismatch`,
+        );
       }
 
       // Verify Schnorr Signature matches userPubkey
@@ -286,7 +347,9 @@ export class AssetsController {
       );
 
       if (!isValid) {
-        throw new BadRequestException('Invalid Schnorr signature for breeding request');
+        throw new BadRequestException(
+          'Invalid Schnorr signature for breeding request',
+        );
       }
 
       // 2. Genetic Execution
@@ -295,11 +358,16 @@ export class AssetsController {
       const entropyHex = entropy.toString('hex');
 
       // Call mixGenomes(parent1.dna, parent2.dna, entropy)
-      const childDna = mixGenomes(parent1Metadata.dna, parent2Metadata.dna, entropyHex);
+      const childDna = mixGenomes(
+        parent1Metadata.dna,
+        parent2Metadata.dna,
+        entropyHex,
+      );
 
       // 3. Economic Execution (Fusion)
       const childValue = parent1Vtxo.amount + parent2Vtxo.amount;
-      const childGeneration = Math.max(parent1Metadata.generation, parent2Metadata.generation) + 1;
+      const childGeneration =
+        Math.max(parent1Metadata.generation, parent2Metadata.generation) + 1;
 
       // Get current block height for cooldown
       const currentBlock = await this.bitcoinService.getBlockHeight();
@@ -317,7 +385,10 @@ export class AssetsController {
 
       // 4. Minting
       // Calculate childAddress using createAssetPayToPublicKey(userPubkey, childMetadata)
-      const childAddress = createAssetPayToPublicKey(userPubkeyBuffer, childMetadata);
+      const childAddress = createAssetPayToPublicKey(
+        userPubkeyBuffer,
+        childMetadata,
+      );
 
       // Call RoundService.scheduleLift with childAddress and childValue
       this.roundService.scheduleLift(childAddress, childValue, childMetadata);
@@ -335,9 +406,8 @@ export class AssetsController {
         throw error;
       }
       throw new BadRequestException(
-        `Breeding failed: ${error instanceof Error ? error.message : 'Unknown error'}`
+        `Breeding failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
       );
     }
   }
 }
-

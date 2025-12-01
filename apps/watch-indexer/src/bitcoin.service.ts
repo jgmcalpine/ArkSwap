@@ -7,14 +7,48 @@ interface BitcoinRPCResponse<T> {
   id: string;
 }
 
-interface BlockData {
+export interface ScriptPubKey {
+  address?: string;
+  addresses?: string[];
+  asm?: string;
+  hex?: string;
+  type?: string;
+}
+
+export interface Vin {
+  txid?: string;
+  vout?: number;
+  coinbase?: string;
+  prevout?: {
+    value: number;
+    scriptPubKey?: ScriptPubKey;
+  };
+}
+
+export interface Vout {
+  value: number;
+  n: number;
+  scriptPubKey?: ScriptPubKey;
+}
+
+export interface BlockTransaction {
+  txid: string;
+  vin: Vin[];
+  vout: Vout[];
+}
+
+export interface BlockData {
   hash: string;
   height: number;
-  tx: Array<{
-    txid: string;
-    vin: Array<unknown>;
-    vout: Array<unknown>;
-  }>;
+  time?: number;
+  tx: BlockTransaction[];
+  [key: string]: unknown;
+}
+
+export interface RawTransaction {
+  txid: string;
+  vout: Vout[];
+  vin: Vin[];
   [key: string]: unknown;
 }
 
@@ -40,12 +74,26 @@ export class BitcoinService {
   }
 
   private async callRPC<T>(method: string, params: unknown[] = []): Promise<T> {
-    const response = await this.axiosInstance.post<BitcoinRPCResponse<T>>('', {
+    const requestBody = {
       jsonrpc: '2.0',
       id: '1',
       method,
       params,
-    });
+    };
+
+    // Log RPC requests for getblock to verify verbosity
+    if (method === 'getblock') {
+      // eslint-disable-next-line no-console
+      console.log(
+        `[BitcoinService] RPC Request: ${method} with params:`,
+        JSON.stringify(params, null, 2),
+      );
+    }
+
+    const response = await this.axiosInstance.post<BitcoinRPCResponse<T>>(
+      '',
+      requestBody,
+    );
 
     if (response.data.error) {
       throw new Error(
@@ -65,6 +113,21 @@ export class BitcoinService {
   }
 
   async getBlock(hash: string, verbosity: 2 = 2): Promise<BlockData> {
+    // Log the RPC call to verify verbosity 2 is being sent
+    // eslint-disable-next-line no-console
+    console.log(
+      `[BitcoinService] Calling getblock with hash=${hash}, verbosity=${verbosity}`,
+    );
     return this.callRPC<BlockData>('getblock', [hash, verbosity]);
+  }
+
+  /**
+   * Gets a raw transaction with full details (verbose mode)
+   * @param txid The transaction ID
+   * @returns The transaction object with vout details
+   */
+  async getRawTransaction(txid: string): Promise<RawTransaction> {
+    // getrawtransaction with verbose=true returns full transaction details
+    return this.callRPC<RawTransaction>('getrawtransaction', [txid, true]);
   }
 }

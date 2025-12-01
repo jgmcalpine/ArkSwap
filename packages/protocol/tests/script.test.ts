@@ -18,7 +18,7 @@ describe('createSwapLock', () => {
   describe('Test 1: Compilation - Valid Taproot Address', () => {
     it('should generate a valid Taproot address starting with bcrt1p', () => {
       const result = createSwapLock(defaultParams);
-      
+
       expect(result.address).toBeDefined();
       expect(typeof result.address).toBe('string');
       expect(result.address).toMatch(/^bcrt1p/);
@@ -27,14 +27,14 @@ describe('createSwapLock', () => {
 
     it('should return a valid output script buffer', () => {
       const result = createSwapLock(defaultParams);
-      
+
       expect(result.output).toBeInstanceOf(Buffer);
       expect(result.output.length).toBeGreaterThan(0);
     });
 
     it('should return control blocks for both paths', () => {
       const result = createSwapLock(defaultParams);
-      
+
       expect(result.controlBlock).toBeInstanceOf(Buffer);
       expect(result.controlBlockRefund).toBeInstanceOf(Buffer);
       expect(result.controlBlock.length).toBeGreaterThan(0);
@@ -43,7 +43,7 @@ describe('createSwapLock', () => {
 
     it('should return compiled scripts for both leaves', () => {
       const result = createSwapLock(defaultParams);
-      
+
       expect(result.leaves.claim).toBeInstanceOf(Buffer);
       expect(result.leaves.refund).toBeInstanceOf(Buffer);
       expect(result.leaves.claim.length).toBeGreaterThan(0);
@@ -55,7 +55,7 @@ describe('createSwapLock', () => {
     it('should produce the exact same address for identical inputs', () => {
       const result1 = createSwapLock(defaultParams);
       const result2 = createSwapLock(defaultParams);
-      
+
       expect(result1.address).toBe(result2.address);
       expect(result1.output).toEqual(result2.output);
       expect(result1.controlBlock).toEqual(result2.controlBlock);
@@ -65,8 +65,10 @@ describe('createSwapLock', () => {
     });
 
     it('should produce identical results across multiple calls', () => {
-      const results = Array.from({ length: 10 }, () => createSwapLock(defaultParams));
-      
+      const results = Array.from({ length: 10 }, () =>
+        createSwapLock(defaultParams),
+      );
+
       const firstAddress = results[0].address;
       results.forEach((result) => {
         expect(result.address).toBe(firstAddress);
@@ -77,68 +79,68 @@ describe('createSwapLock', () => {
   describe('Test 3: Uniqueness', () => {
     it('should produce different address when preimageHash changes by one byte', () => {
       const result1 = createSwapLock(defaultParams);
-      
+
       const alteredPreimageHash = Buffer.from(preimageHash);
       alteredPreimageHash[0] = alteredPreimageHash[0] === 0 ? 1 : 0; // Change first byte
-      
+
       const result2 = createSwapLock({
         ...defaultParams,
         preimageHash: alteredPreimageHash,
       });
-      
+
       expect(result1.address).not.toBe(result2.address);
       expect(result1.output).not.toEqual(result2.output);
     });
 
     it('should produce different address when makerPubkey changes by one byte', () => {
       const result1 = createSwapLock(defaultParams);
-      
+
       const alteredMakerPubkey = Buffer.from(makerPubkey);
       alteredMakerPubkey[0] = alteredMakerPubkey[0] === 0 ? 1 : 0; // Change first byte
-      
+
       const result2 = createSwapLock({
         ...defaultParams,
         makerPubkey: alteredMakerPubkey,
       });
-      
+
       expect(result1.address).not.toBe(result2.address);
     });
 
     it('should produce different address when userPubkey changes by one byte', () => {
       const result1 = createSwapLock(defaultParams);
-      
+
       const alteredUserPubkey = Buffer.from(userPubkey);
       alteredUserPubkey[0] = alteredUserPubkey[0] === 0 ? 1 : 0; // Change first byte
-      
+
       const result2 = createSwapLock({
         ...defaultParams,
         userPubkey: alteredUserPubkey,
       });
-      
+
       expect(result1.address).not.toBe(result2.address);
     });
 
     it('should produce different address when timeoutBlocks changes', () => {
       const result1 = createSwapLock(defaultParams);
-      
+
       const result2 = createSwapLock({
         ...defaultParams,
         timeoutBlocks: timeoutBlocks + 1,
       });
-      
+
       expect(result1.address).not.toBe(result2.address);
     });
 
     it('should produce different addresses for completely different inputs', () => {
       const result1 = createSwapLock(defaultParams);
-      
+
       const result2 = createSwapLock({
         makerPubkey: Buffer.from('d'.repeat(64), 'hex'),
         userPubkey: Buffer.from('e'.repeat(64), 'hex'),
         preimageHash: Buffer.from('f'.repeat(64), 'hex'),
         timeoutBlocks: 20,
       });
-      
+
       expect(result1.address).not.toBe(result2.address);
     });
   });
@@ -147,49 +149,49 @@ describe('createSwapLock', () => {
     it('should contain OP_SHA256 in the claim script', () => {
       const result = createSwapLock(defaultParams);
       const claimScriptAsm = bitcoin.script.toASM(result.leaves.claim);
-      
+
       expect(claimScriptAsm).toContain('OP_SHA256');
     });
 
     it('should contain OP_EQUALVERIFY in the claim script', () => {
       const result = createSwapLock(defaultParams);
       const claimScriptAsm = bitcoin.script.toASM(result.leaves.claim);
-      
+
       expect(claimScriptAsm).toContain('OP_EQUALVERIFY');
     });
 
     it('should contain OP_CHECKSIG in the claim script', () => {
       const result = createSwapLock(defaultParams);
       const claimScriptAsm = bitcoin.script.toASM(result.leaves.claim);
-      
+
       expect(claimScriptAsm).toContain('OP_CHECKSIG');
     });
 
     it('should contain OP_CHECKSEQUENCEVERIFY in the refund script', () => {
       const result = createSwapLock(defaultParams);
       const refundScriptAsm = bitcoin.script.toASM(result.leaves.refund);
-      
+
       expect(refundScriptAsm).toContain('OP_CHECKSEQUENCEVERIFY');
     });
 
     it('should contain OP_DROP in the refund script', () => {
       const result = createSwapLock(defaultParams);
       const refundScriptAsm = bitcoin.script.toASM(result.leaves.refund);
-      
+
       expect(refundScriptAsm).toContain('OP_DROP');
     });
 
     it('should contain OP_CHECKSIG in the refund script', () => {
       const result = createSwapLock(defaultParams);
       const refundScriptAsm = bitcoin.script.toASM(result.leaves.refund);
-      
+
       expect(refundScriptAsm).toContain('OP_CHECKSIG');
     });
 
     it('should contain the timeout value in the refund script', () => {
       const result = createSwapLock(defaultParams);
       const refundScriptAsm = bitcoin.script.toASM(result.leaves.refund);
-      
+
       // The timeout should be encoded in the script
       // For timeoutBlocks = 10, it should appear in the ASM
       expect(refundScriptAsm).toMatch(/\d+/); // Should contain a number
@@ -198,7 +200,7 @@ describe('createSwapLock', () => {
     it('should contain the preimage hash in the claim script', () => {
       const result = createSwapLock(defaultParams);
       const claimScriptAsm = bitcoin.script.toASM(result.leaves.claim);
-      
+
       // The hash should appear in hex format in the ASM
       const hashHex = preimageHash.toString('hex');
       expect(claimScriptAsm.toLowerCase()).toContain(hashHex.toLowerCase());
@@ -258,7 +260,7 @@ describe('createSwapLock', () => {
           timeoutBlocks: 1,
         });
       }).not.toThrow();
-      
+
       expect(() => {
         createSwapLock({
           ...defaultParams,
@@ -274,7 +276,7 @@ describe('createSwapLock', () => {
         ...defaultParams,
         timeoutBlocks: 1,
       });
-      
+
       expect(result.address).toMatch(/^bcrt1p/);
     });
 
@@ -283,7 +285,7 @@ describe('createSwapLock', () => {
         ...defaultParams,
         timeoutBlocks: 0xffffffff,
       });
-      
+
       expect(result.address).toMatch(/^bcrt1p/);
     });
 
@@ -294,7 +296,7 @@ describe('createSwapLock', () => {
         preimageHash: Buffer.alloc(32, 0),
         timeoutBlocks: 10,
       });
-      
+
       expect(result.address).toMatch(/^bcrt1p/);
     });
 
@@ -305,9 +307,8 @@ describe('createSwapLock', () => {
         preimageHash: Buffer.alloc(32, 0xff),
         timeoutBlocks: 10,
       });
-      
+
       expect(result.address).toMatch(/^bcrt1p/);
     });
   });
 });
-

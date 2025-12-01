@@ -54,7 +54,7 @@ export class AssetStore {
       // Byte 1 is at hex positions 2-3
       if (metadata.dna.length >= 4) {
         const firstVisualByte = parseInt(metadata.dna.slice(2, 4), 16);
-        
+
         if (firstVisualByte < 64) {
           distribution.common++;
         } else if (firstVisualByte < 128) {
@@ -82,14 +82,14 @@ export class AssetStore {
    */
   getPondAssets(): Array<{ txid: string; metadata: AssetMetadata }> {
     const pondAssets: Array<{ txid: string; metadata: AssetMetadata }> = [];
-    
+
     this.pond.forEach((txid) => {
       const metadata = this.metadata.get(txid);
       if (metadata) {
         pondAssets.push({ txid, metadata });
       }
     });
-    
+
     return pondAssets;
   }
 
@@ -111,7 +111,9 @@ export class AssetStore {
     // Check if enough blocks have passed since last feed
     const diff = currentBlock - metadata.lastFedBlock;
     if (diff < 72) {
-      throw new Error(`Digesting. Block Age: ${diff}. Required: 72. Current: ${currentBlock}, Last: ${metadata.lastFedBlock}`);
+      throw new Error(
+        `Digesting. Block Age: ${diff}. Required: 72. Current: ${currentBlock}, Last: ${metadata.lastFedBlock}`,
+      );
     }
 
     // Update lastFedBlock and increment XP by 10 (Daily growth bonus)
@@ -125,4 +127,3 @@ export class AssetStore {
     return updatedMetadata;
   }
 }
-

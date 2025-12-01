@@ -28,13 +28,18 @@ test.describe('Swap Happy Path', () => {
       await page.click('button:has-text("Connect Wallet")');
 
       // Assert "Your Ark Balance" is visible
-      await expect(page.getByText('Your Ark Balance')).toBeVisible({ timeout: 15000 });
+      await expect(page.getByText('Your Ark Balance')).toBeVisible({
+        timeout: 15000,
+      });
     });
 
     // Step 2: Lift (Deposit)
     await test.step('Lift (Deposit)', async () => {
       // Get the balance text element (contains number and "ARK")
-      const balanceLocator = page.locator('h2:has-text("Your Ark Balance")').locator('..').locator('p.text-3xl');
+      const balanceLocator = page
+        .locator('h2:has-text("Your Ark Balance")')
+        .locator('..')
+        .locator('p.text-3xl');
 
       // Click "Deposit" button
       await page.click('button:has-text("Deposit")');
@@ -54,10 +59,14 @@ test.describe('Swap Happy Path', () => {
       await page.click('button:has-text("Request Quote")');
 
       // Wait for "Lock Address" to appear
-      await expect(page.locator('text=Lock Address:')).toBeVisible({ timeout: 30000 });
+      await expect(page.locator('text=Lock Address:')).toBeVisible({
+        timeout: 30000,
+      });
 
       // Fill "Your L1 Address" input
-      const l1AddressInput = page.locator('input[placeholder="Enter your Bitcoin address"]');
+      const l1AddressInput = page.locator(
+        'input[placeholder="Enter your Bitcoin address"]',
+      );
       await l1AddressInput.fill('bcrt1q0lzm0f7fp3njv6pqw3sxuh243dpt4puv2as42r');
 
       // Click "Confirm Swap" button
@@ -67,7 +76,9 @@ test.describe('Swap Happy Path', () => {
     // Step 4: Success
     await test.step('Success', async () => {
       // Wait for the Success UI
-      await expect(page.locator('text=Success!')).toBeVisible({ timeout: 30000 });
+      await expect(page.locator('text=Success!')).toBeVisible({
+        timeout: 30000,
+      });
 
       // Assert that "L1 Transaction ID" label is visible
       const l1TxIdLabel = page.locator('text=L1 Transaction ID:');
@@ -76,13 +87,15 @@ test.describe('Swap Happy Path', () => {
       // Get the transaction ID text (should be a hash)
       // The L1 Transaction ID is in a paragraph with class "text-sm font-mono text-green-400"
       // It's in the same container as the label
-      const txIdElement = page.locator('text=L1 Transaction ID:').locator('..').locator('p.text-sm.font-mono.text-green-400');
+      const txIdElement = page
+        .locator('text=L1 Transaction ID:')
+        .locator('..')
+        .locator('p.text-sm.font-mono.text-green-400');
       await expect(txIdElement).toBeVisible();
-      
+
       const txIdText = await txIdElement.textContent();
       expect(txIdText).toBeTruthy();
       expect(txIdText!.trim().length).toBeGreaterThan(10); // Hash should be at least 10 characters
     });
   });
 });
-

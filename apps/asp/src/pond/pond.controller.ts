@@ -1,4 +1,10 @@
-import { Controller, Get, Post, Body, BadRequestException } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  BadRequestException,
+} from '@nestjs/common';
 import { AssetStore } from '../assets/asset.store';
 import { VtxoStore } from '../vtxo-store.service';
 import { SignatureVerifierService } from '../assets/signature-verifier.service';
@@ -28,7 +34,9 @@ export class PondController {
     const { txid, signature, message } = body;
 
     if (!txid || !signature || !message) {
-      throw new BadRequestException('Invalid request: txid, signature, and message are required');
+      throw new BadRequestException(
+        'Invalid request: txid, signature, and message are required',
+      );
     }
 
     // 1. Get VTXO from Store and verify it exists and is !spent
@@ -48,8 +56,12 @@ export class PondController {
     }
 
     // 3. Verify Signature
-    const isValid = this.signatureVerifier.verifySignatureFromAddress(message, signature, vtxo.address);
-    
+    const isValid = this.signatureVerifier.verifySignatureFromAddress(
+      message,
+      signature,
+      vtxo.address,
+    );
+
     if (!isValid) {
       throw new BadRequestException(`Invalid Schnorr signature for ${txid}`);
     }
@@ -60,4 +72,3 @@ export class PondController {
     return { success: true };
   }
 }
-

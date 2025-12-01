@@ -15,8 +15,20 @@ import { SignatureVerifierService } from './assets/signature-verifier.service';
 
 @Module({
   imports: [ScheduleModule.forRoot(), HttpModule],
-  controllers: [InfoController, LiftController, TransferController, AssetsController, PondController],
-  providers: [RoundService, VtxoStore, TransferService, AssetStore, BitcoinService, SignatureVerifierService],
+  controllers: [
+    InfoController,
+    LiftController,
+    TransferController,
+    AssetsController,
+    PondController,
+  ],
+  providers: [
+    RoundService,
+    VtxoStore,
+    TransferService,
+    AssetStore,
+    BitcoinService,
+    SignatureVerifierService,
+  ],
 })
 export class AppModule {}
-

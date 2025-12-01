@@ -6,4 +6,3 @@ export type AspDefinition = Prisma.AspDefinitionGetPayload<{}>;
 export type ScannedBlock = Prisma.ScannedBlockGetPayload<{}>;
 export type ArkRound = Prisma.ArkRoundGetPayload<{}>;
 export type { Prisma };
-

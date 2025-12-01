@@ -49,7 +49,9 @@ export const KoiDetailModal: FC<KoiDetailModalProps> = ({
   isFeeding = false,
 }) => {
   const [feedError, setFeedError] = useState<string | null>(null);
-  const [geneticsVerified, setGeneticsVerified] = useState<boolean | null>(null);
+  const [geneticsVerified, setGeneticsVerified] = useState<boolean | null>(
+    null,
+  );
   const [isVerifying, setIsVerifying] = useState(false);
 
   // Clear error when modal opens/closes
@@ -78,7 +80,7 @@ export const KoiDetailModal: FC<KoiDetailModalProps> = ({
           spent: false,
           metadata,
         };
-        
+
         const isValid = await mockArkClient.verifyGenetics(childVtxo);
         setGeneticsVerified(isValid);
       } catch (error) {
@@ -95,10 +97,10 @@ export const KoiDetailModal: FC<KoiDetailModalProps> = ({
   // Wrap onFeed to catch errors
   const handleFeed: MouseEventHandler<HTMLButtonElement> = async (event) => {
     if (!onFeed) return;
-    
+
     // Clear any previous error
     setFeedError(null);
-    
+
     try {
       await onFeed(event);
     } catch (err) {
@@ -122,26 +124,35 @@ export const KoiDetailModal: FC<KoiDetailModalProps> = ({
     { label: 'Fertility', start: 22, length: 2 },
   ];
 
-  const displayDna = dna.trim().toLowerCase().replace(/^0x/, '').padEnd(64, '0').slice(0, 64);
+  const displayDna = dna
+    .trim()
+    .toLowerCase()
+    .replace(/^0x/, '')
+    .padEnd(64, '0')
+    .slice(0, 64);
 
   // Calculate blocks since last fed (Growth Cycle)
   // Logic check: blocksSinceFed = currentBlock - lastFedBlock
   const blocksSince = (currentBlock || 0) - (metadata?.lastFedBlock || 0);
-  const blocksSinceFedValid = metadata?.lastFedBlock != null && currentBlock != null
-    ? blocksSince
-    : null;
-  
+  const blocksSinceFedValid =
+    metadata?.lastFedBlock != null && currentBlock != null ? blocksSince : null;
+
   // Calculate hibernation status
-  const isHibernating = blocksSinceFedValid != null && blocksSinceFedValid > 144;
-  const hibernationStatus = blocksSinceFedValid != null
-    ? (isHibernating ? 'Hibernating 💤' : 'Growing 🌿')
-    : null;
+  const isHibernating =
+    blocksSinceFedValid != null && blocksSinceFedValid > 144;
+  const hibernationStatus =
+    blocksSinceFedValid != null
+      ? isHibernating
+        ? 'Hibernating 💤'
+        : 'Growing 🌿'
+      : null;
 
   // Calculate feeding cooldown (72 blocks = 12 hours, allows 2 feeds per 144-block "Bitcoin Day")
   const cooldown = 72;
-  const isDigesting = metadata?.lastFedBlock != null && currentBlock != null
-    ? blocksSince < cooldown
-    : false;
+  const isDigesting =
+    metadata?.lastFedBlock != null && currentBlock != null
+      ? blocksSince < cooldown
+      : false;
   const blocksUntilFeed = isDigesting ? Math.max(0, cooldown - blocksSince) : 0;
 
   return (
@@ -172,7 +183,10 @@ export const KoiDetailModal: FC<KoiDetailModalProps> = ({
               <div className="rounded-lg border border-gray-800 bg-black/40 p-3 font-mono text-[11px] leading-relaxed text-cyan-300">
                 <div className="flex flex-wrap gap-1.5">
                   {dnaSegments.map((segment) => {
-                    const segmentValue = displayDna.slice(segment.start, segment.start + segment.length);
+                    const segmentValue = displayDna.slice(
+                      segment.start,
+                      segment.start + segment.length,
+                    );
                     return (
                       <span
                         key={segment.label}
@@ -250,11 +264,18 @@ export const KoiDetailModal: FC<KoiDetailModalProps> = ({
                     <span className="font-medium text-gray-100">
                       {traits?.symmetry ? (
                         <span className="flex items-center gap-2">
-                          <span className={traits.symmetry.label === 'Perfect' ? 'text-cyan-300' : 'text-amber-400'}>
+                          <span
+                            className={
+                              traits.symmetry.label === 'Perfect'
+                                ? 'text-cyan-300'
+                                : 'text-amber-400'
+                            }
+                          >
                             {traits.symmetry.label}
                           </span>
                           <span className="text-xs text-gray-500">
-                            {traits.symmetry.value}/255 ({traits.symmetry.percentage}%)
+                            {traits.symmetry.value}/255 (
+                            {traits.symmetry.percentage}%)
                           </span>
                         </span>
                       ) : (
@@ -274,13 +295,16 @@ export const KoiDetailModal: FC<KoiDetailModalProps> = ({
                   {metadata && (
                     <div className="pb-1 border-b border-gray-800">
                       <small className="text-[10px] text-gray-500 font-mono">
-                        Height: {currentBlock ?? 'N/A'} | LastFed: {metadata.lastFedBlock ?? 'N/A'}
+                        Height: {currentBlock ?? 'N/A'} | LastFed:{' '}
+                        {metadata.lastFedBlock ?? 'N/A'}
                       </small>
                     </div>
                   )}
                   <div>
                     <p className="text-gray-500">TxID</p>
-                    <p className="font-mono text-[11px] text-cyan-300">{truncatedTxid}</p>
+                    <p className="font-mono text-[11px] text-cyan-300">
+                      {truncatedTxid}
+                    </p>
                   </div>
                   {blocksSinceFedValid != null && (
                     <div className="flex items-center justify-between gap-2 pt-1">
@@ -293,39 +317,52 @@ export const KoiDetailModal: FC<KoiDetailModalProps> = ({
                   {hibernationStatus && (
                     <div className="flex items-center justify-between gap-2">
                       <span className="text-gray-500">Status</span>
-                      <span className={cn(
-                        'font-medium',
-                        isHibernating ? 'text-red-400' : 'text-green-400'
-                      )}>
+                      <span
+                        className={cn(
+                          'font-medium',
+                          isHibernating ? 'text-red-400' : 'text-green-400',
+                        )}
+                      >
                         {hibernationStatus}
-                        {blocksSinceFedValid != null && ` (${blocksSinceFedValid} blocks)`}
+                        {blocksSinceFedValid != null &&
+                          ` (${blocksSinceFedValid} blocks)`}
                       </span>
                     </div>
                   )}
                   <div className="flex items-center justify-between gap-2">
                     <span className="text-gray-500">Owner</span>
-                    <span className="font-medium text-gray-100">{ownerLabel}</span>
+                    <span className="font-medium text-gray-100">
+                      {ownerLabel}
+                    </span>
                   </div>
-                  {metadata && metadata.parents && metadata.parents.length > 0 && (
-                    <div className="flex items-center justify-between gap-2 pt-1 border-t border-gray-800">
-                      <span className="text-gray-500">Genetics</span>
-                      <span className="flex items-center gap-1.5 font-medium">
-                        {isVerifying ? (
-                          <span className="text-gray-400 text-xs">Verifying...</span>
-                        ) : geneticsVerified === true ? (
-                          <>
-                            <Shield className="h-3.5 w-3.5 text-green-400" />
-                            <span className="text-green-400 text-xs">🧬 Verified Genetics</span>
-                          </>
-                        ) : geneticsVerified === false ? (
-                          <>
-                            <AlertTriangle className="h-3.5 w-3.5 text-red-400" />
-                            <span className="text-red-400 text-xs">⚠️ Genetic Mismatch (Protocol Violation)</span>
-                          </>
-                        ) : null}
-                      </span>
-                    </div>
-                  )}
+                  {metadata &&
+                    metadata.parents &&
+                    metadata.parents.length > 0 && (
+                      <div className="flex items-center justify-between gap-2 pt-1 border-t border-gray-800">
+                        <span className="text-gray-500">Genetics</span>
+                        <span className="flex items-center gap-1.5 font-medium">
+                          {isVerifying ? (
+                            <span className="text-gray-400 text-xs">
+                              Verifying...
+                            </span>
+                          ) : geneticsVerified === true ? (
+                            <>
+                              <Shield className="h-3.5 w-3.5 text-green-400" />
+                              <span className="text-green-400 text-xs">
+                                🧬 Verified Genetics
+                              </span>
+                            </>
+                          ) : geneticsVerified === false ? (
+                            <>
+                              <AlertTriangle className="h-3.5 w-3.5 text-red-400" />
+                              <span className="text-red-400 text-xs">
+                                ⚠️ Genetic Mismatch (Protocol Violation)
+                              </span>
+                            </>
+                          ) : null}
+                        </span>
+                      </div>
+                    )}
                 </div>
               </div>
             </div>
@@ -336,19 +373,22 @@ export const KoiDetailModal: FC<KoiDetailModalProps> = ({
                   <button
                     type="button"
                     onClick={handleFeed}
-                    disabled={isFeeding || ((currentBlock || 0) - (metadata?.lastFedBlock || 0) < 72)}
+                    disabled={
+                      isFeeding ||
+                      (currentBlock || 0) - (metadata?.lastFedBlock || 0) < 72
+                    }
                     className={cn(
                       'inline-flex w-full items-center justify-center gap-2 rounded-lg border px-4 py-2 text-sm font-medium',
                       'border-green-600 bg-green-700/20 text-green-100',
                       'hover:bg-green-600/30 hover:text-white',
                       'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-500 focus-visible:ring-offset-2 focus-visible:ring-offset-gray-950',
-                      'disabled:cursor-not-allowed disabled:opacity-60'
+                      'disabled:cursor-not-allowed disabled:opacity-60',
                     )}
                   >
-                    {isFeeding 
-                      ? 'Feeding…' 
-                      : isDigesting 
-                        ? `Digesting (${blocksUntilFeed} blocks)` 
+                    {isFeeding
+                      ? 'Feeding…'
+                      : isDigesting
+                        ? `Digesting (${blocksUntilFeed} blocks)`
                         : 'Feed'}
                   </button>
                   {feedError && (
@@ -358,7 +398,10 @@ export const KoiDetailModal: FC<KoiDetailModalProps> = ({
                     <div className="mt-4 p-2 bg-gray-900 rounded text-xs font-mono text-gray-500">
                       <p>Chain Height: {currentBlock}</p>
                       <p>Last Fed: {metadata.lastFedBlock}</p>
-                      <p>Hunger: {(currentBlock || 0) - (metadata.lastFedBlock || 0)}</p>
+                      <p>
+                        Hunger:{' '}
+                        {(currentBlock || 0) - (metadata.lastFedBlock || 0)}
+                      </p>
                       <p>Cooldown: 72</p>
                     </div>
                   )}
@@ -374,7 +417,7 @@ export const KoiDetailModal: FC<KoiDetailModalProps> = ({
                     'border-cyan-600 bg-cyan-700/20 text-cyan-100',
                     'hover:bg-cyan-600/30 hover:text-white',
                     'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500 focus-visible:ring-offset-2 focus-visible:ring-offset-gray-950',
-                    'disabled:cursor-not-allowed disabled:opacity-60'
+                    'disabled:cursor-not-allowed disabled:opacity-60',
                   )}
                 >
                   {isEnteringPond ? 'Submitting to Pond…' : showOffLabel}
@@ -387,5 +430,3 @@ export const KoiDetailModal: FC<KoiDetailModalProps> = ({
     </div>
   );
 };
-
-

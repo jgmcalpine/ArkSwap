@@ -17,13 +17,13 @@ export class LiftController {
   @Post('lift')
   async scheduleLift(@Body() body: LiftRequestDto) {
     const { address, amount } = body;
-    
+
     if (!address || typeof amount !== 'number' || amount <= 0) {
       return { error: 'Invalid address or amount' };
     }
-    
+
     this.roundService.scheduleLift(address, amount);
-    
+
     return {
       status: 'queued',
       nextRound: '5s',
@@ -35,4 +35,3 @@ export class LiftController {
     return this.vtxoStore.getForAddress(address);
   }
 }
-

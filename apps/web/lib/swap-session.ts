@@ -1,6 +1,11 @@
 import type { SwapQuoteResponse } from './api';
 
-export type SwapStep = 'quote' | 'locking' | 'success' | 'pendingRefund' | 'refundSuccess';
+export type SwapStep =
+  | 'quote'
+  | 'locking'
+  | 'success'
+  | 'pendingRefund'
+  | 'refundSuccess';
 
 export interface SwapSession {
   step: SwapStep;
@@ -32,26 +37,28 @@ export function loadSession(): SwapSession | null {
     }
 
     const session = JSON.parse(stored) as SwapSession;
-    
+
     // Validate session structure
     if (
       typeof session.step === 'string' &&
       typeof session.amount === 'string' &&
       typeof session.userL1Address === 'string' &&
       (session.quote === null || typeof session.quote === 'object') &&
-      (session.lockAddress === null || typeof session.lockAddress === 'string') &&
+      (session.lockAddress === null ||
+        typeof session.lockAddress === 'string') &&
       (session.l1TxId === null || typeof session.l1TxId === 'string') &&
       (session.startBlock === null || typeof session.startBlock === 'number') &&
-      (session.timeoutBlock === null || typeof session.timeoutBlock === 'number')
+      (session.timeoutBlock === null ||
+        typeof session.timeoutBlock === 'number')
     ) {
       // If caught in 'locking' step, revert to 'quote' to prevent spinner loops
       if (session.step === 'locking') {
         session.step = 'quote';
       }
-      
+
       return session;
     }
-    
+
     // Invalid session structure, clear it
     clearSession();
     return null;
@@ -69,4 +76,3 @@ export function clearSession(): void {
     console.error('Failed to clear swap session:', error);
   }
 }
-

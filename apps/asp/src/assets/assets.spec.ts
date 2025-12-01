@@ -16,14 +16,16 @@ jest.mock('@arkswap/protocol', () => {
   const actual = jest.requireActual('@arkswap/protocol');
   return {
     ...actual,
-    createAssetPayToPublicKey: jest.fn((pubkey: Buffer, metadata: AssetMetadata) => {
-      // Create a deterministic address based on pubkey (first 4 bytes) and DNA for testing
-      // This ensures the same pubkey + metadata always produces the same address
-      // Different pubkeys will produce different addresses
-      const pubkeyHash = pubkey.toString('hex').slice(0, 8);
-      const dnaHash = metadata.dna.slice(0, 8);
-      return `bcrt1p${pubkeyHash}${dnaHash}${'0'.repeat(44)}`;
-    }),
+    createAssetPayToPublicKey: jest.fn(
+      (pubkey: Buffer, metadata: AssetMetadata) => {
+        // Create a deterministic address based on pubkey (first 4 bytes) and DNA for testing
+        // This ensures the same pubkey + metadata always produces the same address
+        // Different pubkeys will produce different addresses
+        const pubkeyHash = pubkey.toString('hex').slice(0, 8);
+        const dnaHash = metadata.dna.slice(0, 8);
+        return `bcrt1p${pubkeyHash}${dnaHash}${'0'.repeat(44)}`;
+      },
+    ),
   };
 });
 
@@ -150,8 +152,12 @@ describe('Assets', () => {
       store = module.get<AssetStore>(AssetStore);
       vtxoStore = module.get(VtxoStore) as jest.Mocked<VtxoStore>;
       roundService = module.get(RoundService) as jest.Mocked<RoundService>;
-      bitcoinService = module.get(BitcoinService) as jest.Mocked<BitcoinService>;
-      signatureVerifier = module.get(SignatureVerifierService) as jest.Mocked<SignatureVerifierService>;
+      bitcoinService = module.get(
+        BitcoinService,
+      ) as jest.Mocked<BitcoinService>;
+      signatureVerifier = module.get(
+        SignatureVerifierService,
+      ) as jest.Mocked<SignatureVerifierService>;
     });
 
     it('should return metadata for existing txid', () => {
@@ -215,8 +221,14 @@ describe('Assets', () => {
 
         // Create addresses that will match when controller recreates them
         const userPubkeyBuffer = Buffer.from(userPubkey, 'hex');
-        const parent1Address = createAssetPayToPublicKey(userPubkeyBuffer, parent1Metadata);
-        const parent2Address = createAssetPayToPublicKey(userPubkeyBuffer, parent2Metadata);
+        const parent1Address = createAssetPayToPublicKey(
+          userPubkeyBuffer,
+          parent1Metadata,
+        );
+        const parent2Address = createAssetPayToPublicKey(
+          userPubkeyBuffer,
+          parent2Metadata,
+        );
 
         parent1Vtxo = {
           txid: asTxId(parent1Id),
@@ -271,7 +283,8 @@ describe('Assets', () => {
         expect(roundService.scheduleLift).toHaveBeenCalledTimes(1);
 
         // Get the call arguments
-        const [childAddress, childValue, childMetadata] = roundService.scheduleLift.mock.calls[0];
+        const [childAddress, childValue, childMetadata] =
+          roundService.scheduleLift.mock.calls[0];
 
         // Assert: Child value is sum of parents (Fusion: 1000 + 1500 = 2500)
         expect(childValue).toBe(2500);
@@ -299,7 +312,10 @@ describe('Assets', () => {
 
         // Recreate parent2 address with new metadata
         const userPubkeyBuffer = Buffer.from(userPubkey, 'hex');
-        const parent2Address = createAssetPayToPublicKey(userPubkeyBuffer, parent2Metadata);
+        const parent2Address = createAssetPayToPublicKey(
+          userPubkeyBuffer,
+          parent2Metadata,
+        );
         parent2Vtxo = {
           ...parent2Vtxo,
           address: asAddress(parent2Address),
@@ -485,7 +501,10 @@ describe('Assets', () => {
         // Arrange: Create parent with different address (different pubkey)
         const differentPubkey = 'c'.repeat(64);
         const differentPubkeyBuffer = Buffer.from(differentPubkey, 'hex');
-        const differentAddress = createAssetPayToPublicKey(differentPubkeyBuffer, parent1Metadata);
+        const differentAddress = createAssetPayToPublicKey(
+          differentPubkeyBuffer,
+          parent1Metadata,
+        );
         const wrongParent1Vtxo = {
           ...parent1Vtxo,
           address: asAddress(differentAddress),

@@ -10,4 +10,3 @@ import { SwapModule } from './swap/swap.module';
   providers: [],
 })
 export class AppModule {}
-

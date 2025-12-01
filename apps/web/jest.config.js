@@ -2,9 +2,12 @@ module.exports = {
   preset: 'ts-jest',
   testEnvironment: 'node', // Use node for crypto libraries, we'll mock localStorage
   transform: {
-    '^.+\\.tsx?$': ['ts-jest', {
-      tsconfig: 'tsconfig.json',
-    }],
+    '^.+\\.tsx?$': [
+      'ts-jest',
+      {
+        tsconfig: 'tsconfig.json',
+      },
+    ],
   },
   moduleNameMapper: {
     '^@/(.*)$': '<rootDir>/$1', // Handle path aliases
@@ -16,4 +19,3 @@ module.exports = {
     '/e2e/', // Exclude Playwright e2e tests
   ],
 };
-

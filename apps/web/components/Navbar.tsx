@@ -6,7 +6,7 @@ import { cn } from '../lib/utils';
 
 export function Navbar() {
   const { address, balance, isConnected, connect, disconnect } = useWallet();
-  
+
   const handleConnect = async () => {
     await connect();
   };
@@ -46,7 +46,7 @@ export function Navbar() {
                 className={cn(
                   'rounded-lg border border-gray-700 bg-gray-800 px-4 py-2 text-sm font-medium',
                   'text-gray-300 transition-colors hover:bg-gray-700 hover:text-white',
-                  'focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-gray-900'
+                  'focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-gray-900',
                 )}
               >
                 Disconnect
@@ -58,7 +58,7 @@ export function Navbar() {
               className={cn(
                 'rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white',
                 'transition-colors hover:bg-blue-700',
-                'focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-gray-900'
+                'focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-gray-900',
               )}
             >
               Connect Wallet
@@ -69,4 +69,3 @@ export function Navbar() {
     </nav>
   );
 }
-

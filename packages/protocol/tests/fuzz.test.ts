@@ -14,7 +14,12 @@ describe('Fuzz Testing: createSwapLock', () => {
           anyBytes32,
           anyBytes32,
           validTimeout,
-          (makerPubkeyBytes, userPubkeyBytes, preimageHashBytes, timeoutBlocks) => {
+          (
+            makerPubkeyBytes,
+            userPubkeyBytes,
+            preimageHashBytes,
+            timeoutBlocks,
+          ) => {
             // Convert Uint8Array to Buffer
             const makerPubkey = Buffer.from(makerPubkeyBytes);
             const userPubkey = Buffer.from(userPubkeyBytes);
@@ -35,12 +40,14 @@ describe('Fuzz Testing: createSwapLock', () => {
             expect(result1.address).toBe(result2.address);
             expect(result1.output).toEqual(result2.output);
             expect(result1.controlBlock).toEqual(result2.controlBlock);
-            expect(result1.controlBlockRefund).toEqual(result2.controlBlockRefund);
+            expect(result1.controlBlockRefund).toEqual(
+              result2.controlBlockRefund,
+            );
             expect(result1.leaves.claim).toEqual(result2.leaves.claim);
             expect(result1.leaves.refund).toEqual(result2.leaves.refund);
-          }
+          },
         ),
-        { numRuns: 100 }
+        { numRuns: 100 },
       );
     });
   });
@@ -53,7 +60,12 @@ describe('Fuzz Testing: createSwapLock', () => {
           anyBytes32,
           anyBytes32,
           validTimeout,
-          (makerPubkeyBytes, userPubkeyBytes, preimageHashBytes, timeoutBlocks) => {
+          (
+            makerPubkeyBytes,
+            userPubkeyBytes,
+            preimageHashBytes,
+            timeoutBlocks,
+          ) => {
             // Convert Uint8Array to Buffer
             const makerPubkey = Buffer.from(makerPubkeyBytes);
             const userPubkey = Buffer.from(userPubkeyBytes);
@@ -73,9 +85,9 @@ describe('Fuzz Testing: createSwapLock', () => {
 
             // Assert output is exactly 34 bytes (standard Taproot output length)
             expect(result.output.length).toBe(34);
-          }
+          },
         ),
-        { numRuns: 100 }
+        { numRuns: 100 },
       );
     });
   });
@@ -88,7 +100,12 @@ describe('Fuzz Testing: createSwapLock', () => {
           anyBytes32,
           anyBytes32,
           validTimeout,
-          (makerPubkeyBytes, userPubkeyBytes, preimageHashBytes, timeoutBlocks) => {
+          (
+            makerPubkeyBytes,
+            userPubkeyBytes,
+            preimageHashBytes,
+            timeoutBlocks,
+          ) => {
             const makerPubkey = Buffer.from(makerPubkeyBytes);
             const userPubkey = Buffer.from(userPubkeyBytes);
             const preimageHash = Buffer.from(preimageHashBytes);
@@ -100,10 +117,12 @@ describe('Fuzz Testing: createSwapLock', () => {
               timeoutBlocks,
             };
 
-            expect(() => createSwapLock(params)).toThrow('makerPubkey must be 32 bytes');
-          }
+            expect(() => createSwapLock(params)).toThrow(
+              'makerPubkey must be 32 bytes',
+            );
+          },
         ),
-        { numRuns: 50 }
+        { numRuns: 50 },
       );
     });
 
@@ -114,7 +133,12 @@ describe('Fuzz Testing: createSwapLock', () => {
           anyBytes32,
           anyBytes32,
           validTimeout,
-          (makerPubkeyBytes, userPubkeyBytes, preimageHashBytes, timeoutBlocks) => {
+          (
+            makerPubkeyBytes,
+            userPubkeyBytes,
+            preimageHashBytes,
+            timeoutBlocks,
+          ) => {
             const makerPubkey = Buffer.from(makerPubkeyBytes);
             const userPubkey = Buffer.from(userPubkeyBytes);
             const preimageHash = Buffer.from(preimageHashBytes);
@@ -126,10 +150,12 @@ describe('Fuzz Testing: createSwapLock', () => {
               timeoutBlocks,
             };
 
-            expect(() => createSwapLock(params)).toThrow('makerPubkey must be 32 bytes');
-          }
+            expect(() => createSwapLock(params)).toThrow(
+              'makerPubkey must be 32 bytes',
+            );
+          },
         ),
-        { numRuns: 50 }
+        { numRuns: 50 },
       );
     });
 
@@ -140,7 +166,12 @@ describe('Fuzz Testing: createSwapLock', () => {
           fc.uint8Array({ minLength: 31, maxLength: 31 }),
           anyBytes32,
           validTimeout,
-          (makerPubkeyBytes, userPubkeyBytes, preimageHashBytes, timeoutBlocks) => {
+          (
+            makerPubkeyBytes,
+            userPubkeyBytes,
+            preimageHashBytes,
+            timeoutBlocks,
+          ) => {
             const makerPubkey = Buffer.from(makerPubkeyBytes);
             const userPubkey = Buffer.from(userPubkeyBytes);
             const preimageHash = Buffer.from(preimageHashBytes);
@@ -152,10 +183,12 @@ describe('Fuzz Testing: createSwapLock', () => {
               timeoutBlocks,
             };
 
-            expect(() => createSwapLock(params)).toThrow('userPubkey must be 32 bytes');
-          }
+            expect(() => createSwapLock(params)).toThrow(
+              'userPubkey must be 32 bytes',
+            );
+          },
         ),
-        { numRuns: 50 }
+        { numRuns: 50 },
       );
     });
 
@@ -166,7 +199,12 @@ describe('Fuzz Testing: createSwapLock', () => {
           fc.uint8Array({ minLength: 33, maxLength: 33 }),
           anyBytes32,
           validTimeout,
-          (makerPubkeyBytes, userPubkeyBytes, preimageHashBytes, timeoutBlocks) => {
+          (
+            makerPubkeyBytes,
+            userPubkeyBytes,
+            preimageHashBytes,
+            timeoutBlocks,
+          ) => {
             const makerPubkey = Buffer.from(makerPubkeyBytes);
             const userPubkey = Buffer.from(userPubkeyBytes);
             const preimageHash = Buffer.from(preimageHashBytes);
@@ -178,10 +216,12 @@ describe('Fuzz Testing: createSwapLock', () => {
               timeoutBlocks,
             };
 
-            expect(() => createSwapLock(params)).toThrow('userPubkey must be 32 bytes');
-          }
+            expect(() => createSwapLock(params)).toThrow(
+              'userPubkey must be 32 bytes',
+            );
+          },
         ),
-        { numRuns: 50 }
+        { numRuns: 50 },
       );
     });
 
@@ -192,7 +232,12 @@ describe('Fuzz Testing: createSwapLock', () => {
           anyBytes32,
           fc.uint8Array({ minLength: 31, maxLength: 31 }),
           validTimeout,
-          (makerPubkeyBytes, userPubkeyBytes, preimageHashBytes, timeoutBlocks) => {
+          (
+            makerPubkeyBytes,
+            userPubkeyBytes,
+            preimageHashBytes,
+            timeoutBlocks,
+          ) => {
             const makerPubkey = Buffer.from(makerPubkeyBytes);
             const userPubkey = Buffer.from(userPubkeyBytes);
             const preimageHash = Buffer.from(preimageHashBytes);
@@ -204,10 +249,12 @@ describe('Fuzz Testing: createSwapLock', () => {
               timeoutBlocks,
             };
 
-            expect(() => createSwapLock(params)).toThrow('preimageHash must be 32 bytes');
-          }
+            expect(() => createSwapLock(params)).toThrow(
+              'preimageHash must be 32 bytes',
+            );
+          },
         ),
-        { numRuns: 50 }
+        { numRuns: 50 },
       );
     });
 
@@ -218,7 +265,12 @@ describe('Fuzz Testing: createSwapLock', () => {
           anyBytes32,
           fc.uint8Array({ minLength: 33, maxLength: 33 }),
           validTimeout,
-          (makerPubkeyBytes, userPubkeyBytes, preimageHashBytes, timeoutBlocks) => {
+          (
+            makerPubkeyBytes,
+            userPubkeyBytes,
+            preimageHashBytes,
+            timeoutBlocks,
+          ) => {
             const makerPubkey = Buffer.from(makerPubkeyBytes);
             const userPubkey = Buffer.from(userPubkeyBytes);
             const preimageHash = Buffer.from(preimageHashBytes);
@@ -230,10 +282,12 @@ describe('Fuzz Testing: createSwapLock', () => {
               timeoutBlocks,
             };
 
-            expect(() => createSwapLock(params)).toThrow('preimageHash must be 32 bytes');
-          }
+            expect(() => createSwapLock(params)).toThrow(
+              'preimageHash must be 32 bytes',
+            );
+          },
         ),
-        { numRuns: 50 }
+        { numRuns: 50 },
       );
     });
 
@@ -244,7 +298,12 @@ describe('Fuzz Testing: createSwapLock', () => {
           anyBytes32,
           anyBytes32,
           fc.integer({ min: Number.MIN_SAFE_INTEGER, max: 0 }),
-          (makerPubkeyBytes, userPubkeyBytes, preimageHashBytes, timeoutBlocks) => {
+          (
+            makerPubkeyBytes,
+            userPubkeyBytes,
+            preimageHashBytes,
+            timeoutBlocks,
+          ) => {
             const makerPubkey = Buffer.from(makerPubkeyBytes);
             const userPubkey = Buffer.from(userPubkeyBytes);
             const preimageHash = Buffer.from(preimageHashBytes);
@@ -256,10 +315,12 @@ describe('Fuzz Testing: createSwapLock', () => {
               timeoutBlocks,
             };
 
-            expect(() => createSwapLock(params)).toThrow('timeoutBlocks must be between 1 and 0xffffffff');
-          }
+            expect(() => createSwapLock(params)).toThrow(
+              'timeoutBlocks must be between 1 and 0xffffffff',
+            );
+          },
         ),
-        { numRuns: 50 }
+        { numRuns: 50 },
       );
     });
 
@@ -270,7 +331,12 @@ describe('Fuzz Testing: createSwapLock', () => {
           anyBytes32,
           anyBytes32,
           fc.integer({ min: 0x100000000, max: Number.MAX_SAFE_INTEGER }),
-          (makerPubkeyBytes, userPubkeyBytes, preimageHashBytes, timeoutBlocks) => {
+          (
+            makerPubkeyBytes,
+            userPubkeyBytes,
+            preimageHashBytes,
+            timeoutBlocks,
+          ) => {
             const makerPubkey = Buffer.from(makerPubkeyBytes);
             const userPubkey = Buffer.from(userPubkeyBytes);
             const preimageHash = Buffer.from(preimageHashBytes);
@@ -282,12 +348,13 @@ describe('Fuzz Testing: createSwapLock', () => {
               timeoutBlocks,
             };
 
-            expect(() => createSwapLock(params)).toThrow('timeoutBlocks must be between 1 and 0xffffffff');
-          }
+            expect(() => createSwapLock(params)).toThrow(
+              'timeoutBlocks must be between 1 and 0xffffffff',
+            );
+          },
         ),
-        { numRuns: 50 }
+        { numRuns: 50 },
       );
     });
   });
 });
-

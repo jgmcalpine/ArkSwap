@@ -47,7 +47,7 @@ export const KoiCard: FC<KoiCardProps> = ({
         'transition-transform transition-colors duration-200',
         'hover:-translate-y-1 focus-visible:-translate-y-1',
         'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500',
-        rarityClasses[rarity]
+        rarityClasses[rarity],
       )}
     >
       <div className="flex items-start justify-between gap-2">
@@ -60,7 +60,7 @@ export const KoiCard: FC<KoiCardProps> = ({
         <div
           className={cn(
             'inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide',
-            rarityLabelClasses[rarity]
+            rarityLabelClasses[rarity],
           )}
         >
           {rarity}
@@ -75,5 +75,3 @@ export const KoiCard: FC<KoiCardProps> = ({
     </button>
   );
 };
-
-

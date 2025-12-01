@@ -26,8 +26,12 @@ export const BreedingModal: FC<BreedingModalProps> = ({
   onClose,
   vtxos,
 }) => {
-  const [selectedParent1, setSelectedParent1] = useState<ExtendedVtxo | null>(null);
-  const [selectedParent2, setSelectedParent2] = useState<ExtendedVtxo | null>(null);
+  const [selectedParent1, setSelectedParent1] = useState<ExtendedVtxo | null>(
+    null,
+  );
+  const [selectedParent2, setSelectedParent2] = useState<ExtendedVtxo | null>(
+    null,
+  );
   const [selectionMode, setSelectionMode] = useState<SelectionMode>(null);
   const [isBreeding, setIsBreeding] = useState(false);
   const [breedError, setBreedError] = useState<string | null>(null);
@@ -61,7 +65,7 @@ export const BreedingModal: FC<BreedingModalProps> = ({
 
   const handleBreed: MouseEventHandler<HTMLButtonElement> = async (event) => {
     event.preventDefault();
-    
+
     if (!selectedParent1 || !selectedParent2 || isBreeding) {
       return;
     }
@@ -71,8 +75,11 @@ export const BreedingModal: FC<BreedingModalProps> = ({
     setBreedSuccess(false);
 
     try {
-      const result = await mockArkClient.breed(selectedParent1.txid, selectedParent2.txid);
-      
+      const result = await mockArkClient.breed(
+        selectedParent1.txid,
+        selectedParent2.txid,
+      );
+
       if (result.success) {
         setBreedSuccess(true);
         // Reset selection after successful breeding
@@ -103,9 +110,13 @@ export const BreedingModal: FC<BreedingModalProps> = ({
   };
 
   // Calculate child generation preview
-  const childGeneration = selectedParent1?.metadata && selectedParent2?.metadata
-    ? Math.max(selectedParent1.metadata.generation, selectedParent2.metadata.generation) + 1
-    : null;
+  const childGeneration =
+    selectedParent1?.metadata && selectedParent2?.metadata
+      ? Math.max(
+          selectedParent1.metadata.generation,
+          selectedParent2.metadata.generation,
+        ) + 1
+      : null;
 
   if (!isOpen) {
     return null;
@@ -131,7 +142,9 @@ export const BreedingModal: FC<BreedingModalProps> = ({
           <div className="grid gap-4 sm:grid-cols-2 mb-6">
             {/* Parent 1 Slot */}
             <div className="space-y-2">
-              <label className="text-sm font-medium text-gray-400">Parent 1</label>
+              <label className="text-sm font-medium text-gray-400">
+                Parent 1
+              </label>
               {selectedParent1?.metadata ? (
                 <div className="relative rounded-xl border border-cyan-700 bg-cyan-900/20 p-4">
                   <button
@@ -162,7 +175,8 @@ export const BreedingModal: FC<BreedingModalProps> = ({
                     'hover:border-cyan-600 hover:bg-cyan-900/20',
                     'transition-colors text-gray-400 hover:text-cyan-300',
                     'disabled:opacity-50 disabled:cursor-not-allowed',
-                    selectionMode === 'parent1' && 'border-cyan-500 bg-cyan-900/30'
+                    selectionMode === 'parent1' &&
+                      'border-cyan-500 bg-cyan-900/30',
                   )}
                 >
                   <div className="text-center">
@@ -174,7 +188,9 @@ export const BreedingModal: FC<BreedingModalProps> = ({
 
             {/* Parent 2 Slot */}
             <div className="space-y-2">
-              <label className="text-sm font-medium text-gray-400">Parent 2</label>
+              <label className="text-sm font-medium text-gray-400">
+                Parent 2
+              </label>
               {selectedParent2?.metadata ? (
                 <div className="relative rounded-xl border border-purple-700 bg-purple-900/20 p-4">
                   <button
@@ -205,7 +221,8 @@ export const BreedingModal: FC<BreedingModalProps> = ({
                     'hover:border-purple-600 hover:bg-purple-900/20',
                     'transition-colors text-gray-400 hover:text-purple-300',
                     'disabled:opacity-50 disabled:cursor-not-allowed',
-                    selectionMode === 'parent2' && 'border-purple-500 bg-purple-900/30'
+                    selectionMode === 'parent2' &&
+                      'border-purple-500 bg-purple-900/30',
                   )}
                 >
                   <div className="text-center">
@@ -240,10 +257,16 @@ export const BreedingModal: FC<BreedingModalProps> = ({
                   {assetVtxos
                     .filter((vtxo) => {
                       // Exclude already selected parent
-                      if (selectionMode === 'parent1' && selectedParent2?.txid === vtxo.txid) {
+                      if (
+                        selectionMode === 'parent1' &&
+                        selectedParent2?.txid === vtxo.txid
+                      ) {
                         return false;
                       }
-                      if (selectionMode === 'parent2' && selectedParent1?.txid === vtxo.txid) {
+                      if (
+                        selectionMode === 'parent2' &&
+                        selectedParent1?.txid === vtxo.txid
+                      ) {
                         return false;
                       }
                       return true;
@@ -259,7 +282,7 @@ export const BreedingModal: FC<BreedingModalProps> = ({
                           className={cn(
                             'rounded-lg border p-2 text-left transition-colors',
                             'hover:border-cyan-500 hover:bg-cyan-900/20',
-                            'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500'
+                            'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500',
                           )}
                         >
                           <KoiCard
@@ -320,7 +343,7 @@ export const BreedingModal: FC<BreedingModalProps> = ({
                 'border-cyan-600 bg-cyan-700/20 text-cyan-100',
                 'hover:bg-cyan-600/30 hover:text-white',
                 'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500',
-                'disabled:cursor-not-allowed disabled:opacity-50'
+                'disabled:cursor-not-allowed disabled:opacity-50',
               )}
             >
               {isBreeding ? (
@@ -339,7 +362,8 @@ export const BreedingModal: FC<BreedingModalProps> = ({
 
             {breedSuccess && (
               <p className="text-xs text-green-400 text-center">
-                Breeding successful! Your new Koi will appear after the next Round.
+                Breeding successful! Your new Koi will appear after the next
+                Round.
               </p>
             )}
           </div>
@@ -348,4 +372,3 @@ export const BreedingModal: FC<BreedingModalProps> = ({
     </div>
   );
 };
-

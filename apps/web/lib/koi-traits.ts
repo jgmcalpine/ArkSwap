@@ -70,4 +70,3 @@ export const getEyeTrait = (byte: number): EyeTraitResult => {
   // index === 3
   return { name: 'Crosshair', type: 'crosshair' };
 };
-

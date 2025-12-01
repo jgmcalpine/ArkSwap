@@ -22,4 +22,3 @@ export const walletTools: WalletTools = {
   network,
   ecc: ecc as ECCLibrary,
 };
-

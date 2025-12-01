@@ -48,10 +48,15 @@ export class SwapService {
     const preimageHex = preimage.toString('hex');
 
     // Hash the preimage (SHA256)
-    const preimageHash = crypto.createHash('sha256').update(preimage).digest('hex');
+    const preimageHash = crypto
+      .createHash('sha256')
+      .update(preimage)
+      .digest('hex');
 
     // Generate ephemeral maker keypair
-    const makerKeyPair = ECPair.makeRandom({ network: bitcoin.networks.regtest });
+    const makerKeyPair = ECPair.makeRandom({
+      network: bitcoin.networks.regtest,
+    });
     const makerPrivateKeyHex = makerKeyPair.privateKey!.toString('hex');
     const makerPubkey = makerKeyPair.publicKey.slice(1, 33).toString('hex'); // x-only pubkey
 
@@ -90,7 +95,11 @@ export class SwapService {
   /**
    * Processes a swap: validates, simulates VTXO verification/claim, and executes L1 payout
    */
-  async processSwap(swapId: string, userTxId: string, userL1Address: string): Promise<string> {
+  async processSwap(
+    swapId: string,
+    userTxId: string,
+    userL1Address: string,
+  ): Promise<string> {
     // Validation: Retrieve the swap quote from memory
     const swap = this.swaps.get(swapId);
     if (!swap) {
@@ -139,7 +148,10 @@ export class SwapService {
     this.logger.log(
       `💸 Sending ${swap.amount} sats (${amountBtcFormatted} BTC) to ${userL1Address}`,
     );
-    const l1TxId = await this.bitcoinService.sendToAddress(swap.amount, userL1Address);
+    const l1TxId = await this.bitcoinService.sendToAddress(
+      swap.amount,
+      userL1Address,
+    );
 
     // State Update: Mark swap as COMPLETED
     swap.status = SwapStatus.COMPLETED;
@@ -150,4 +162,3 @@ export class SwapService {
     return l1TxId;
   }
 }
-

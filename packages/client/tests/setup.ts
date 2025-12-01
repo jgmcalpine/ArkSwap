@@ -32,4 +32,3 @@ const localStorageMock = (() => {
 (global as any).window = {
   localStorage: localStorageMock,
 };
-

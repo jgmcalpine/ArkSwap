@@ -1,4 +1,10 @@
-import { Controller, Post, Body, Logger, BadRequestException } from '@nestjs/common';
+import {
+  Controller,
+  Post,
+  Body,
+  Logger,
+  BadRequestException,
+} from '@nestjs/common';
 import { SwapService } from './swap.service';
 import { z, ZodError } from 'zod';
 
@@ -39,18 +45,22 @@ export class SwapController {
 
       const quote = this.swapService.createQuote(validatedBody.amount);
 
-      this.logger.log(`✅ Quote created: id=${quote.id}, preimageHash=${quote.preimageHash}`);
+      this.logger.log(
+        `✅ Quote created: id=${quote.id}, preimageHash=${quote.preimageHash}`,
+      );
 
       return quote;
     } catch (error) {
       if (error instanceof ZodError) {
         throw new BadRequestException(
-          `Validation failed: ${error.issues.map((e) => `${e.path.join('.')}: ${e.message}`).join(', ')}`
+          `Validation failed: ${error.issues.map((e) => `${e.path.join('.')}: ${e.message}`).join(', ')}`,
         );
       }
       // Handle other errors...
       if (error instanceof BadRequestException) throw error;
-      throw new BadRequestException(error instanceof Error ? error.message : 'Unknown error');
+      throw new BadRequestException(
+        error instanceof Error ? error.message : 'Unknown error',
+      );
     }
   }
 
@@ -59,7 +69,9 @@ export class SwapController {
     try {
       const validatedBody = SwapCommitRequestSchema.parse(body);
 
-      this.logger.log(`🔄 Commit requested: swapId=${validatedBody.swapId}, txid=${validatedBody.txid}`);
+      this.logger.log(
+        `🔄 Commit requested: swapId=${validatedBody.swapId}, txid=${validatedBody.txid}`,
+      );
 
       const l1TxId = await this.swapService.processSwap(
         validatedBody.swapId,
@@ -67,7 +79,9 @@ export class SwapController {
         validatedBody.userL1Address,
       );
 
-      this.logger.log(`✅ Swap committed: swapId=${validatedBody.swapId}, l1TxId=${l1TxId}`);
+      this.logger.log(
+        `✅ Swap committed: swapId=${validatedBody.swapId}, l1TxId=${l1TxId}`,
+      );
 
       return {
         success: true,
@@ -76,13 +90,14 @@ export class SwapController {
     } catch (error) {
       if (error instanceof ZodError) {
         throw new BadRequestException(
-          `Validation failed: ${error.issues.map((e) => `${e.path.join('.')}: ${e.message}`).join(', ')}`
+          `Validation failed: ${error.issues.map((e) => `${e.path.join('.')}: ${e.message}`).join(', ')}`,
         );
       }
       // Handle other errors...
       if (error instanceof BadRequestException) throw error;
-      throw new BadRequestException(error instanceof Error ? error.message : 'Unknown error');
+      throw new BadRequestException(
+        error instanceof Error ? error.message : 'Unknown error',
+      );
     }
   }
 }
-

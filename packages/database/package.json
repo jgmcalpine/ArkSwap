@@ -7,6 +7,7 @@
     "build": "tsc",
     "dev": "tsc --watch",
     "clean": "rm -rf dist",
+    "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json}\"",
     "type-check": "tsc --noEmit",
     "generate": "prisma generate",
     "postinstall": "prisma generate",
@@ -24,4 +25,3 @@
     "typescript": "^5.5.0"
   }
 }
-

@@ -2,8 +2,26 @@ import { walletTools } from './crypto';
 
 // Re-export walletTools for convenience
 export { walletTools } from './crypto';
-import type { Vtxo, ArkTransaction, ArkInput, ArkOutput, Address, TxId, AssetMetadata } from '@arkswap/protocol';
-import { getTxHash, VtxoSchema, AssetMetadataSchema, asTxId, asAddress, asSignatureHex, createAssetPayToPublicKey, getAssetHash, mixGenomes } from '@arkswap/protocol';
+import type {
+  Vtxo,
+  ArkTransaction,
+  ArkInput,
+  ArkOutput,
+  Address,
+  TxId,
+  AssetMetadata,
+} from '@arkswap/protocol';
+import {
+  getTxHash,
+  VtxoSchema,
+  AssetMetadataSchema,
+  asTxId,
+  asAddress,
+  asSignatureHex,
+  createAssetPayToPublicKey,
+  getAssetHash,
+  mixGenomes,
+} from '@arkswap/protocol';
 import { z } from 'zod';
 
 const WIF_STORAGE_KEY = 'ark_wallet_wif';
@@ -23,13 +41,16 @@ export class MockArkClient {
    * Helper to read VTXOs from LocalStorage (only called from methods)
    * Returns VTXOs that may have optional metadata and assetId fields
    */
-  private getStorage(): Record<string, Array<Vtxo & { metadata?: AssetMetadata; assetId?: string }>> {
+  private getStorage(): Record<
+    string,
+    Array<Vtxo & { metadata?: AssetMetadata; assetId?: string }>
+  > {
     if (typeof window === 'undefined') return {};
     try {
       const stored = localStorage.getItem(VTXO_STORAGE_KEY);
       return stored ? JSON.parse(stored) : {};
     } catch (e) {
-      console.error("Failed to parse ark vtxos", e);
+      console.error('Failed to parse ark vtxos', e);
       return {};
     }
   }
@@ -38,7 +59,12 @@ export class MockArkClient {
    * Helper to save VTXOs to LocalStorage (only called from methods)
    * Accepts VTXOs that may have optional metadata and assetId fields
    */
-  private setStorage(vtxos: Record<string, Array<Vtxo & { metadata?: AssetMetadata; assetId?: string }>>) {
+  private setStorage(
+    vtxos: Record<
+      string,
+      Array<Vtxo & { metadata?: AssetMetadata; assetId?: string }>
+    >,
+  ) {
     if (typeof window === 'undefined') return;
     localStorage.setItem(VTXO_STORAGE_KEY, JSON.stringify(vtxos));
   }
@@ -64,7 +90,7 @@ export class MockArkClient {
       const stored = localStorage.getItem(WATCHED_ADDRESSES_KEY);
       return stored ? JSON.parse(stored) : [];
     } catch (e) {
-      console.error("Failed to parse watched addresses", e);
+      console.error('Failed to parse watched addresses', e);
       return [];
     }
   }
@@ -106,20 +132,21 @@ export class MockArkClient {
     // Ensure keypair exists first
     await this.getKeyPair();
     const address = await this.getAddress();
-    
+
     if (!address) {
       throw new Error('Failed to generate address after creating wallet');
     }
-    
+
     return address;
   }
 
   /**
    * Returns the Taproot address derived from the stored key, or null if no wallet exists
    */
-  async getAddress(): Promise<string | null> { // Return type changed to allow null
+  async getAddress(): Promise<string | null> {
+    // Return type changed to allow null
     const { bitcoin, network } = walletTools;
-    
+
     // 1. Check WIF directly first. Do not call getKeyPair() yet.
     const wif = this.getWIF();
     if (!wif) {
@@ -132,7 +159,7 @@ export class MockArkClient {
       internalPubkey: keyPair.publicKey.slice(1, 33),
       network,
     });
-    
+
     return payment.address!;
   }
 
@@ -164,15 +191,18 @@ export class MockArkClient {
 
     // 1. Prepare the Private Key Buffer (32 bytes)
     if (!keyPair.privateKey) throw new Error('Missing private key');
-    let privateKeyBuffer = keyPair.privateKey.length === 33 
-      ? keyPair.privateKey.slice(1) 
-      : keyPair.privateKey;
+    let privateKeyBuffer =
+      keyPair.privateKey.length === 33
+        ? keyPair.privateKey.slice(1)
+        : keyPair.privateKey;
 
     // 2. Handle Key Parity (Critical for Taproot)
-    // If the public key has an ODD Y-coordinate (prefix 0x03), 
+    // If the public key has an ODD Y-coordinate (prefix 0x03),
     // we must negate the private key before tweaking to match the x-only pubkey expectation.
     if (keyPair.publicKey[0] === 0x03) {
-      privateKeyBuffer = Buffer.from(walletTools.ecc.privateNegate(privateKeyBuffer));
+      privateKeyBuffer = Buffer.from(
+        walletTools.ecc.privateNegate(privateKeyBuffer),
+      );
     }
 
     // 3. Get x-only Pubkey
@@ -182,7 +212,10 @@ export class MockArkClient {
     const tweakHash = bitcoin.crypto.taggedHash('TapTweak', internalPubkey);
 
     // 5. Apply Tweak
-    const tweakedPrivateKey = walletTools.ecc.privateAdd(privateKeyBuffer, tweakHash);
+    const tweakedPrivateKey = walletTools.ecc.privateAdd(
+      privateKeyBuffer,
+      tweakHash,
+    );
     if (!tweakedPrivateKey) throw new Error('Failed to tweak private key');
 
     // --- BIP-86 SIGNING LOGIC END ---
@@ -197,13 +230,18 @@ export class MockArkClient {
    * @param amount - Amount in sats to mint the asset with
    * @returns Promise with success status, address, metadata, and status message
    */
-  async mintGen0(amount: number): Promise<{ success: boolean; address: string; status: string; metadata: AssetMetadata }> {
+  async mintGen0(amount: number): Promise<{
+    success: boolean;
+    address: string;
+    status: string;
+    metadata: AssetMetadata;
+  }> {
     // Get the current wallet's public key
     const pubkeyBuffer = await this.getPublicKey();
-    
+
     // Convert pubkey to hex string (64 hex characters for 32 bytes)
     const userPubkey = pubkeyBuffer.toString('hex');
-    
+
     // Call the ASP genesis endpoint
     const response = await fetch('http://localhost:7070/v1/assets/genesis', {
       method: 'POST',
@@ -212,21 +250,25 @@ export class MockArkClient {
     });
 
     if (!response.ok) {
-      const error = await response.json().catch(() => ({ message: response.statusText }));
-      throw new Error(error.message || `Failed to mint Gen 0 Koi: ${response.statusText}`);
+      const error = await response
+        .json()
+        .catch(() => ({ message: response.statusText }));
+      throw new Error(
+        error.message || `Failed to mint Gen 0 Koi: ${response.statusText}`,
+      );
     }
 
     const result = await response.json();
-    
+
     // Validate and parse metadata
     const metadata = AssetMetadataSchema.parse(result.metadata);
-    
+
     // Derive the asset address using the wallet's pubkey and metadata
     const assetAddress = createAssetPayToPublicKey(pubkeyBuffer, metadata);
-    
+
     // Add the asset address to watched addresses so we can poll for it
     this.addWatchedAddress(assetAddress);
-    
+
     return {
       success: result.success,
       address: result.address,
@@ -243,7 +285,7 @@ export class MockArkClient {
     const addressBranded = asAddress(address);
     const addressVtxos = vtxos[address] ?? [];
     return addressVtxos
-      .filter(vtxo => !vtxo.spent && vtxo.address === addressBranded)
+      .filter((vtxo) => !vtxo.spent && vtxo.address === addressBranded)
       .reduce((sum, vtxo) => sum + vtxo.amount, 0);
   }
 
@@ -256,7 +298,10 @@ export class MockArkClient {
     const addressBranded = asAddress(address);
     const addressVtxos = vtxos[address] ?? [];
     return addressVtxos
-      .filter(vtxo => !vtxo.spent && vtxo.address === addressBranded && !vtxo.metadata)
+      .filter(
+        (vtxo) =>
+          !vtxo.spent && vtxo.address === addressBranded && !vtxo.metadata,
+      )
       .reduce((sum, vtxo) => sum + vtxo.amount, 0);
   }
 
@@ -264,11 +309,15 @@ export class MockArkClient {
    * Gets all unspent VTXOs for an address
    * Returns VTXOs that may have optional metadata and assetId fields
    */
-  getVtxos(address: string): Array<Vtxo & { metadata?: AssetMetadata; assetId?: string }> {
+  getVtxos(
+    address: string,
+  ): Array<Vtxo & { metadata?: AssetMetadata; assetId?: string }> {
     const vtxos = this.getStorage();
     const addressBranded = asAddress(address);
     const addressVtxos = vtxos[address] ?? [];
-    return addressVtxos.filter(vtxo => !vtxo.spent && vtxo.address === addressBranded);
+    return addressVtxos.filter(
+      (vtxo) => !vtxo.spent && vtxo.address === addressBranded,
+    );
   }
 
   /**
@@ -277,12 +326,12 @@ export class MockArkClient {
   addVtxo(address: string, amount: number): void {
     const vtxos = this.getStorage();
     const addressVtxos = vtxos[address] ?? [];
-    
+
     // Generate a random txid (64 hex characters)
     const txid = Array.from({ length: 64 }, () =>
-      Math.floor(Math.random() * 16).toString(16)
+      Math.floor(Math.random() * 16).toString(16),
     ).join('');
-    
+
     const newVtxo: Vtxo = {
       txid: asTxId(txid),
       vout: 0,
@@ -290,7 +339,7 @@ export class MockArkClient {
       address: asAddress(address),
       spent: false,
     };
-    
+
     addressVtxos.push(newVtxo);
     vtxos[address] = addressVtxos;
     this.setStorage(vtxos);
@@ -303,29 +352,32 @@ export class MockArkClient {
   selectCoins(address: string, targetAmount: number): Vtxo[] {
     const unspentVtxos = this.getVtxos(address);
     const addressBranded = asAddress(address);
-    
+
     // SECURITY FIX: Ensure we only select coins that match the current address
     // This prevents trying to sign coins from a previous wallet session
-    const myCoins = unspentVtxos.filter(v => v.address === addressBranded);
+    const myCoins = unspentVtxos.filter((v) => v.address === addressBranded);
 
     // Exclude any VTXOs that have asset metadata – these are collectible assets, not payment coins
-    const paymentCandidates = myCoins.filter(v => !v.metadata && !v.spent);
+    const paymentCandidates = myCoins.filter((v) => !v.metadata && !v.spent);
 
     // Sort by amount descending for better selection (First-Fit on payment candidates only)
     const sorted = [...paymentCandidates].sort((a, b) => b.amount - a.amount);
-    
+
     let selected: Vtxo[] = [];
     let total = 0;
-    
+
     for (const vtxo of sorted) {
       if (total >= targetAmount) break;
       selected.push(vtxo);
       total += vtxo.amount;
     }
-    
+
     if (total < targetAmount) {
       const totalValue = myCoins.reduce((sum, vtxo) => sum + vtxo.amount, 0);
-      const paymentTotal = paymentCandidates.reduce((sum, vtxo) => sum + vtxo.amount, 0);
+      const paymentTotal = paymentCandidates.reduce(
+        (sum, vtxo) => sum + vtxo.amount,
+        0,
+      );
 
       // User has enough total value, but too much of it is locked in asset VTXOs
       if (totalValue >= targetAmount && paymentTotal < targetAmount) {
@@ -349,7 +401,9 @@ export class MockArkClient {
 
     for (const txid of assetTxIds) {
       const brandedTxId = asTxId(txid);
-      const match = addressVtxos.find(vtxo => vtxo.txid === brandedTxId && vtxo.address === addressBranded);
+      const match = addressVtxos.find(
+        (vtxo) => vtxo.txid === brandedTxId && vtxo.address === addressBranded,
+      );
 
       if (!match || match.spent) {
         throw new Error('Requested asset VTXO not found or already spent');
@@ -367,13 +421,13 @@ export class MockArkClient {
   markVtxosSpent(address: string, txids: TxId[]): void {
     const vtxos = this.getStorage();
     const addressVtxos = vtxos[address] ?? [];
-    
+
     for (const vtxo of addressVtxos) {
       if (txids.includes(vtxo.txid)) {
         vtxo.spent = true;
       }
     }
-    
+
     vtxos[address] = addressVtxos;
     this.setStorage(vtxos);
   }
@@ -389,7 +443,7 @@ export class MockArkClient {
       // This is a simplified approach - in practice, you'd select specific coins
       const targetAmount = Math.abs(amount);
       const selected = this.selectCoins(address, targetAmount);
-      const txids: TxId[] = selected.map(v => v.txid);
+      const txids: TxId[] = selected.map((v) => v.txid);
       this.markVtxosSpent(address, txids);
     }
   }
@@ -404,7 +458,10 @@ export class MockArkClient {
   /**
    * Initiates a lift (onboarding) request to the ASP
    */
-  async lift(address: string, amount: number): Promise<{ status: string; nextRound: string }> {
+  async lift(
+    address: string,
+    amount: number,
+  ): Promise<{ status: string; nextRound: string }> {
     const LiftResponseSchema = z.object({
       status: z.string(),
       nextRound: z.string(),
@@ -431,7 +488,7 @@ export class MockArkClient {
   private async fetchAddressFromASP(address: string): Promise<void> {
     try {
       const response = await fetch(`http://localhost:7070/v1/vtxos/${address}`);
-      
+
       if (!response.ok) {
         // If ASP is not available, silently fail (don't break the app)
         if (response.status === 404 || response.status >= 500) {
@@ -444,42 +501,48 @@ export class MockArkClient {
       const aspVtxos = VtxoSchema.array().parse(data);
       const vtxos = this.getStorage();
       const addressVtxos = vtxos[address] ?? [];
-      
+
       // Identify new VTXOs
-      const newVtxos: Array<Vtxo & { metadata?: AssetMetadata; assetId?: string }> = [];
+      const newVtxos: Array<
+        Vtxo & { metadata?: AssetMetadata; assetId?: string }
+      > = [];
       for (const aspVtxo of aspVtxos) {
-        const exists = addressVtxos.some(v => v.txid === aspVtxo.txid);
+        const exists = addressVtxos.some((v) => v.txid === aspVtxo.txid);
         if (!exists) {
           newVtxos.push(aspVtxo);
         }
       }
-      
+
       // If we have new VTXOs, fetch asset metadata for each in parallel
       if (newVtxos.length > 0) {
         const enrichedVtxos = await Promise.all(
           newVtxos.map(async (vtxo) => {
             try {
-              const assetResponse = await fetch(`http://localhost:7070/v1/assets/${vtxo.txid}`);
-              
+              const assetResponse = await fetch(
+                `http://localhost:7070/v1/assets/${vtxo.txid}`,
+              );
+
               // Handle actual HTTP errors (500s, network issues, etc.)
               if (!assetResponse.ok) {
-                console.warn(`[Radar] Asset fetch failed for ${vtxo.txid}: ${assetResponse.status}`);
+                console.warn(
+                  `[Radar] Asset fetch failed for ${vtxo.txid}: ${assetResponse.status}`,
+                );
                 return vtxo;
               }
-              
+
               // Read response as text first to handle empty bodies gracefully
               // ASP might return empty body (Content-Length: 0) or "null" string for standard VTXOs
               const text = await assetResponse.text();
               const assetData = text ? JSON.parse(text) : null;
-              
+
               // If null, this is a standard VTXO (not an asset) - valid state, no metadata
               if (!assetData) {
                 return vtxo;
               }
-              
+
               // If we have data, validate and process the metadata
               const metadata = AssetMetadataSchema.parse(assetData);
-              
+
               // Use DNA as assetId (as per protocol convention)
               return {
                 ...vtxo,
@@ -488,12 +551,15 @@ export class MockArkClient {
               };
             } catch (error) {
               // Network error or parse error - continue with normal VTXO
-              console.warn(`[Radar] Error fetching asset metadata for ${vtxo.txid}:`, error);
+              console.warn(
+                `[Radar] Error fetching asset metadata for ${vtxo.txid}:`,
+                error,
+              );
               return vtxo;
             }
-          })
+          }),
         );
-        
+
         // Add enriched VTXOs to storage
         addressVtxos.push(...enrichedVtxos);
         vtxos[address] = addressVtxos;
@@ -512,13 +578,13 @@ export class MockArkClient {
   async fetchFromASP(mainAddress: string): Promise<void> {
     // Build list of addresses to poll: main address + all watched addresses
     const addressesToPoll = [mainAddress, ...this.getWatchedAddresses()];
-    
+
     // Remove duplicates
     const uniqueAddresses = Array.from(new Set(addressesToPoll));
-    
+
     // Fetch VTXOs for all addresses in parallel
     await Promise.all(
-      uniqueAddresses.map(address => this.fetchAddressFromASP(address))
+      uniqueAddresses.map((address) => this.fetchAddressFromASP(address)),
     );
   }
 
@@ -528,7 +594,7 @@ export class MockArkClient {
    */
   async send(amount: number, toAddress: string): Promise<string> {
     const myAddress = await this.getAddress();
-    
+
     if (!myAddress) {
       throw new Error('No wallet found. Please create a wallet first.');
     }
@@ -547,16 +613,14 @@ export class MockArkClient {
     const change = selectedTotal - amount;
 
     // 2. Build Outputs
-    const outputs: ArkOutput[] = [
-      { address: asAddress(toAddress), amount },
-    ];
+    const outputs: ArkOutput[] = [{ address: asAddress(toAddress), amount }];
 
     if (change > 0) {
       outputs.push({ address: asAddress(myAddress), amount: change });
     }
 
     // 3. Prepare Inputs
-    const inputsUnsigned = selected.map(coin => ({
+    const inputsUnsigned = selected.map((coin) => ({
       txid: coin.txid,
       vout: coin.vout,
     }));
@@ -574,7 +638,7 @@ export class MockArkClient {
           vout: coin.vout,
           signature: asSignatureHex(signatureHex),
         };
-      })
+      }),
     );
 
     const tx: ArkTransaction = { inputs, outputs };
@@ -587,7 +651,9 @@ export class MockArkClient {
     });
 
     if (!response.ok) {
-      const err = await response.json().catch(() => ({ error: response.statusText }));
+      const err = await response
+        .json()
+        .catch(() => ({ error: response.statusText }));
       throw new Error(err.error || err.message || 'Transfer failed');
     }
 
@@ -596,8 +662,8 @@ export class MockArkClient {
     // 7. Update State
     const allVtxos = this.getStorage();
     if (allVtxos[myAddress]) {
-      allVtxos[myAddress] = allVtxos[myAddress].map(v => {
-        if (selected.find(s => s.txid === v.txid && s.vout === v.vout)) {
+      allVtxos[myAddress] = allVtxos[myAddress].map((v) => {
+        if (selected.find((s) => s.txid === v.txid && s.vout === v.vout)) {
           return { ...v, spent: true };
         }
         return v;
@@ -612,7 +678,10 @@ export class MockArkClient {
    * Claims a refund by lifting funds back to L2
    * Uses the Lift mechanism to ensure the ASP knows about the VTXO
    */
-  async claimRefund(amount: number, address: string): Promise<{ status: string; nextRound: string }> {
+  async claimRefund(
+    amount: number,
+    address: string,
+  ): Promise<{ status: string; nextRound: string }> {
     // Use lift to recover L1 funds and re-deposit them to L2
     // This ensures the ASP generates the VTXO and knows the ID
     return await this.lift(address, amount);
@@ -622,10 +691,12 @@ export class MockArkClient {
    * Finds a VTXO by txid across all addresses in storage
    * Returns the VTXO with optional metadata and assetId if found
    */
-  private findVtxoByTxid(txid: TxId): (Vtxo & { metadata?: AssetMetadata; assetId?: string }) | undefined {
+  private findVtxoByTxid(
+    txid: TxId,
+  ): (Vtxo & { metadata?: AssetMetadata; assetId?: string }) | undefined {
     const vtxos = this.getStorage();
     for (const addr in vtxos) {
-      const vtxo = vtxos[addr].find(v => v.txid === txid);
+      const vtxo = vtxos[addr].find((v) => v.txid === txid);
       if (vtxo) {
         return vtxo;
       }
@@ -646,15 +717,16 @@ export class MockArkClient {
   ): Promise<string> {
     const { bitcoin, ECPair, ecc } = walletTools;
     const keyPair = await this.getKeyPair();
-    
+
     if (!keyPair.privateKey) {
       throw new Error('Missing private key');
     }
 
     // Prepare private key buffer (32 bytes)
-    let privateKeyBuffer = keyPair.privateKey.length === 33 
-      ? keyPair.privateKey.slice(1) 
-      : keyPair.privateKey;
+    let privateKeyBuffer =
+      keyPair.privateKey.length === 33
+        ? keyPair.privateKey.slice(1)
+        : keyPair.privateKey;
 
     // Handle Base Key Parity
     // If the public key has an ODD Y-coordinate (prefix 0x03), negate the private key
@@ -716,36 +788,40 @@ export class MockArkClient {
    * @param parent2Id - Transaction ID of the second parent asset
    * @returns Object containing the message and signature hex string
    */
-  async signBreedMessage(parent1Id: string, parent2Id: string): Promise<{ message: string; signature: string }> {
+  async signBreedMessage(
+    parent1Id: string,
+    parent2Id: string,
+  ): Promise<{ message: string; signature: string }> {
     const { bitcoin, ecc } = walletTools;
-    
+
     // Step 1: Construct message
     const message = `Breed ${parent1Id} + ${parent2Id}`;
-    
+
     // Step 2: Hash message (SHA256)
     const messageHash = bitcoin.crypto.sha256(Buffer.from(message, 'utf8'));
-    
+
     // Step 3: Get keypair and prepare private key
     const keyPair = await this.getKeyPair();
     if (!keyPair.privateKey) {
       throw new Error('Missing private key');
     }
-    
+
     // Prepare private key buffer (32 bytes)
-    let privateKeyBuffer = keyPair.privateKey.length === 33 
-      ? keyPair.privateKey.slice(1) 
-      : keyPair.privateKey;
-    
+    let privateKeyBuffer =
+      keyPair.privateKey.length === 33
+        ? keyPair.privateKey.slice(1)
+        : keyPair.privateKey;
+
     // Step 4: Handle Parity Check
     // If the public key has an ODD Y-coordinate (prefix 0x03), negate the private key
     if (keyPair.publicKey[0] === 0x03) {
       privateKeyBuffer = Buffer.from(ecc.privateNegate(privateKeyBuffer));
     }
-    
+
     // Step 5: Sign hash with private key (no tweaking - base wallet key only)
     const signatureRaw = ecc.signSchnorr(messageHash, privateKeyBuffer);
     const signature = Buffer.from(signatureRaw).toString('hex');
-    
+
     return { message, signature };
   }
 
@@ -756,11 +832,14 @@ export class MockArkClient {
    * @param parent2Id - Transaction ID of the second parent asset
    * @returns Promise with the child metadata
    */
-  async breed(parent1Id: string, parent2Id: string): Promise<{ success: boolean; child: AssetMetadata }> {
+  async breed(
+    parent1Id: string,
+    parent2Id: string,
+  ): Promise<{ success: boolean; child: AssetMetadata }> {
     // Step 1: Find both VTXOs in local storage
     const parent1Txid = asTxId(parent1Id);
     const parent2Txid = asTxId(parent2Id);
-    
+
     const parent1Vtxo = this.findVtxoByTxid(parent1Txid);
     const parent2Vtxo = this.findVtxoByTxid(parent2Txid);
 
@@ -798,7 +877,10 @@ export class MockArkClient {
     const userPubkey = walletPubkey.toString('hex');
 
     // Step 4: Sign the message using double-tweak logic
-    const { message, signature } = await this.signBreedMessage(parent1Id, parent2Id);
+    const { message, signature } = await this.signBreedMessage(
+      parent1Id,
+      parent2Id,
+    );
 
     // Step 5: Call POST /v1/assets/breed
     const response = await fetch('http://localhost:7070/v1/assets/breed', {
@@ -808,7 +890,9 @@ export class MockArkClient {
     });
 
     if (!response.ok) {
-      const err = await response.json().catch(() => ({ error: response.statusText }));
+      const err = await response
+        .json()
+        .catch(() => ({ error: response.statusText }));
       throw new Error(err.error || err.message || 'Breeding failed');
     }
 
@@ -817,14 +901,17 @@ export class MockArkClient {
     // Step 6: On Success - Derive child address and add to watched addresses
     // This ensures the poller knows where to look for the new Gen 1 fish
     if (result.child) {
-      const childAddress = createAssetPayToPublicKey(walletPubkey, result.child);
+      const childAddress = createAssetPayToPublicKey(
+        walletPubkey,
+        result.child,
+      );
       this.addWatchedAddress(childAddress);
     }
 
     // Step 7: Mark Parent 1 and Parent 2 as spent: true in local storage
     const allVtxos = this.getStorage();
     for (const addr in allVtxos) {
-      allVtxos[addr] = allVtxos[addr].map(v => {
+      allVtxos[addr] = allVtxos[addr].map((v) => {
         if (v.txid === parent1Txid || v.txid === parent2Txid) {
           return { ...v, spent: true };
         }
@@ -851,16 +938,24 @@ export class MockArkClient {
   /**
    * Fetches global stats from the ASP
    */
-  async getStats(): Promise<{ total: number; distribution: Record<string, number> }> {
+  async getStats(): Promise<{
+    total: number;
+    distribution: Record<string, number>;
+  }> {
     const response = await fetch('http://localhost:7070/v1/assets/stats');
-    
+
     if (!response.ok) {
       throw new Error(`Failed to fetch stats: ${response.statusText}`);
     }
-    
+
     // Read response as text first to handle empty bodies gracefully
     const text = await response.text();
-    return text ? JSON.parse(text) : { total: 0, distribution: { common: 0, rare: 0, epic: 0, legendary: 0 } };
+    return text
+      ? JSON.parse(text)
+      : {
+          total: 0,
+          distribution: { common: 0, rare: 0, epic: 0, legendary: 0 },
+        };
   }
 
   /**
@@ -868,20 +963,20 @@ export class MockArkClient {
    */
   async getPond(): Promise<Array<{ txid: string; metadata: AssetMetadata }>> {
     const response = await fetch('http://localhost:7070/v1/pond');
-    
+
     if (!response.ok) {
       throw new Error(`Failed to fetch pond: ${response.statusText}`);
     }
-    
+
     // Read response as text first to handle empty bodies gracefully
     const text = await response.text();
     const data = text ? JSON.parse(text) : [];
-    
+
     // Validate metadata for each item
     if (!Array.isArray(data)) {
       return [];
     }
-    
+
     return data.map((item: { txid: string; metadata: unknown }) => ({
       txid: item.txid,
       metadata: AssetMetadataSchema.parse(item.metadata),
@@ -891,13 +986,18 @@ export class MockArkClient {
   /**
    * Fetches ASP info including current block height
    */
-  async getInfo(): Promise<{ pubkey: string; roundInterval: number; network: string; currentBlock: number }> {
+  async getInfo(): Promise<{
+    pubkey: string;
+    roundInterval: number;
+    network: string;
+    currentBlock: number;
+  }> {
     const response = await fetch('http://localhost:7070/v1/info');
-    
+
     if (!response.ok) {
       throw new Error(`Failed to fetch info: ${response.statusText}`);
     }
-    
+
     return await response.json();
   }
 
@@ -906,42 +1006,47 @@ export class MockArkClient {
    * @param txid - The transaction ID to sign
    * @returns Object containing the message and signature hex string
    */
-  async signPondEntry(txid: TxId): Promise<{ message: string; signature: string }> {
+  async signPondEntry(
+    txid: TxId,
+  ): Promise<{ message: string; signature: string }> {
     const { bitcoin, ECPair, ecc } = walletTools;
     const vtxos = this.getStorage();
-    
+
     // Step 1: Find VTXO across all addresses
-    let vtxo: (Vtxo & { metadata?: AssetMetadata; assetId?: string }) | undefined;
+    let vtxo:
+      | (Vtxo & { metadata?: AssetMetadata; assetId?: string })
+      | undefined;
     for (const addr in vtxos) {
-      vtxo = vtxos[addr].find(v => v.txid === txid);
+      vtxo = vtxos[addr].find((v) => v.txid === txid);
       if (vtxo) break;
     }
-    
+
     if (!vtxo) {
       throw new Error('VTXO not found');
     }
-    
+
     // Step 2: Create message and hash
     const message = `Showcase ${txid}`;
     const messageHash = bitcoin.crypto.sha256(Buffer.from(message, 'utf8'));
-    
+
     // Step 3: Get keypair and prepare private key
     const keyPair = await this.getKeyPair();
     if (!keyPair.privateKey) {
       throw new Error('Missing private key');
     }
-    
+
     // Prepare private key buffer (32 bytes)
-    let privateKeyBuffer = keyPair.privateKey.length === 33 
-      ? keyPair.privateKey.slice(1) 
-      : keyPair.privateKey;
-    
+    let privateKeyBuffer =
+      keyPair.privateKey.length === 33
+        ? keyPair.privateKey.slice(1)
+        : keyPair.privateKey;
+
     // Step 4: Handle Base Key Parity
     // If the public key has an ODD Y-coordinate (prefix 0x03), negate the private key
     if (keyPair.publicKey[0] === 0x03) {
       privateKeyBuffer = Buffer.from(ecc.privateNegate(privateKeyBuffer));
     }
-    
+
     // Step 5: Apply Asset Tweak (if metadata exists)
     let assetPubkey: Buffer | undefined;
     if (vtxo.metadata) {
@@ -951,12 +1056,12 @@ export class MockArkClient {
         throw new Error('Asset tweak failed');
       }
       privateKeyBuffer = Buffer.from(assetPrivateKey);
-      
+
       // Step 6: Handle Asset Pubkey Parity
       // Get the intermediate pubkey (P') to check parity
       const tempPair = ECPair.fromPrivateKey(privateKeyBuffer);
       assetPubkey = tempPair.publicKey;
-      
+
       // If assetPubkey has odd Y-coordinate, negate the private key
       if (assetPubkey[0] === 0x03) {
         privateKeyBuffer = Buffer.from(ecc.privateNegate(privateKeyBuffer));
@@ -965,7 +1070,7 @@ export class MockArkClient {
         assetPubkey = negatedPair.publicKey;
       }
     }
-    
+
     // Step 7: Apply BIP-86 TapTweak (Standard for P2TR)
     // Use assetPubkey if available (from asset tweak), otherwise get from base key
     let pPrime: Buffer;
@@ -976,18 +1081,18 @@ export class MockArkClient {
       const basePair = ECPair.fromPrivateKey(privateKeyBuffer);
       pPrime = basePair.publicKey.slice(1, 33);
     }
-    
+
     // Calculate TapTweak
     const tapTweak = bitcoin.crypto.taggedHash('TapTweak', pPrime);
     const finalPrivateKey = ecc.privateAdd(privateKeyBuffer, tapTweak);
     if (!finalPrivateKey) {
       throw new Error('Taproot tweak failed');
     }
-    
+
     // Step 8: Sign the hash
     const signatureRaw = ecc.signSchnorr(messageHash, finalPrivateKey);
     const signature = Buffer.from(signatureRaw).toString('hex');
-    
+
     return { message, signature };
   }
 
@@ -997,7 +1102,7 @@ export class MockArkClient {
   async enterPond(vtxo: Vtxo): Promise<{ success: boolean }> {
     // Sign the message
     const { message, signature } = await this.signPondEntry(vtxo.txid);
-    
+
     // Post to /v1/pond/enter
     const response = await fetch('http://localhost:7070/v1/pond/enter', {
       method: 'POST',
@@ -1008,12 +1113,14 @@ export class MockArkClient {
         message,
       }),
     });
-    
+
     if (!response.ok) {
-      const error = await response.json().catch(() => ({ message: response.statusText }));
+      const error = await response
+        .json()
+        .catch(() => ({ message: response.statusText }));
       throw new Error(error.message || error.error || 'Failed to enter pond');
     }
-    
+
     return await response.json();
   }
 
@@ -1022,42 +1129,47 @@ export class MockArkClient {
    * @param txid - The transaction ID to sign
    * @returns Object containing the message and signature hex string
    */
-  async signFeedMessage(txid: TxId): Promise<{ message: string; signature: string }> {
+  async signFeedMessage(
+    txid: TxId,
+  ): Promise<{ message: string; signature: string }> {
     const { bitcoin, ECPair, ecc } = walletTools;
     const vtxos = this.getStorage();
-    
+
     // Step 1: Find VTXO across all addresses
-    let vtxo: (Vtxo & { metadata?: AssetMetadata; assetId?: string }) | undefined;
+    let vtxo:
+      | (Vtxo & { metadata?: AssetMetadata; assetId?: string })
+      | undefined;
     for (const addr in vtxos) {
-      vtxo = vtxos[addr].find(v => v.txid === txid);
+      vtxo = vtxos[addr].find((v) => v.txid === txid);
       if (vtxo) break;
     }
-    
+
     if (!vtxo) {
       throw new Error('VTXO not found');
     }
-    
+
     // Step 2: Create message and hash (different message format for feeding)
     const message = `Feed ${txid}`;
     const messageHash = bitcoin.crypto.sha256(Buffer.from(message, 'utf8'));
-    
+
     // Step 3: Get keypair and prepare private key
     const keyPair = await this.getKeyPair();
     if (!keyPair.privateKey) {
       throw new Error('Missing private key');
     }
-    
+
     // Prepare private key buffer (32 bytes)
-    let privateKeyBuffer = keyPair.privateKey.length === 33 
-      ? keyPair.privateKey.slice(1) 
-      : keyPair.privateKey;
-    
+    let privateKeyBuffer =
+      keyPair.privateKey.length === 33
+        ? keyPair.privateKey.slice(1)
+        : keyPair.privateKey;
+
     // Step 4: Handle Base Key Parity
     // If the public key has an ODD Y-coordinate (prefix 0x03), negate the private key
     if (keyPair.publicKey[0] === 0x03) {
       privateKeyBuffer = Buffer.from(ecc.privateNegate(privateKeyBuffer));
     }
-    
+
     // Step 5: Apply Asset Tweak (if metadata exists)
     let assetPubkey: Buffer | undefined;
     if (vtxo.metadata) {
@@ -1067,12 +1179,12 @@ export class MockArkClient {
         throw new Error('Asset tweak failed');
       }
       privateKeyBuffer = Buffer.from(assetPrivateKey);
-      
+
       // Step 6: Handle Asset Pubkey Parity
       // Get the intermediate pubkey (P') to check parity
       const tempPair = ECPair.fromPrivateKey(privateKeyBuffer);
       assetPubkey = tempPair.publicKey;
-      
+
       // If assetPubkey has odd Y-coordinate, negate the private key
       if (assetPubkey[0] === 0x03) {
         privateKeyBuffer = Buffer.from(ecc.privateNegate(privateKeyBuffer));
@@ -1081,7 +1193,7 @@ export class MockArkClient {
         assetPubkey = negatedPair.publicKey;
       }
     }
-    
+
     // Step 7: Apply BIP-86 TapTweak (Standard for P2TR)
     // Use assetPubkey if available (from asset tweak), otherwise get from base key
     let pPrime: Buffer;
@@ -1092,18 +1204,18 @@ export class MockArkClient {
       const basePair = ECPair.fromPrivateKey(privateKeyBuffer);
       pPrime = basePair.publicKey.slice(1, 33);
     }
-    
+
     // Calculate TapTweak
     const tapTweak = bitcoin.crypto.taggedHash('TapTweak', pPrime);
     const finalPrivateKey = ecc.privateAdd(privateKeyBuffer, tapTweak);
     if (!finalPrivateKey) {
       throw new Error('Taproot tweak failed');
     }
-    
+
     // Step 8: Sign the hash
     const signatureRaw = ecc.signSchnorr(messageHash, finalPrivateKey);
     const signature = Buffer.from(signatureRaw).toString('hex');
-    
+
     return { message, signature };
   }
 
@@ -1111,10 +1223,12 @@ export class MockArkClient {
    * Feeds a Koi by signing a message and posting to the feed endpoint
    * Updates local VTXO metadata with the response
    */
-  async feedKoi(vtxo: Vtxo & { metadata?: AssetMetadata }): Promise<{ success: boolean; metadata: AssetMetadata }> {
+  async feedKoi(
+    vtxo: Vtxo & { metadata?: AssetMetadata },
+  ): Promise<{ success: boolean; metadata: AssetMetadata }> {
     // Sign the message
     const { message, signature } = await this.signFeedMessage(vtxo.txid);
-    
+
     // Post to /v1/assets/feed
     const response = await fetch('http://localhost:7070/v1/assets/feed', {
       method: 'POST',
@@ -1125,21 +1239,23 @@ export class MockArkClient {
         message,
       }),
     });
-    
+
     if (!response.ok) {
-      const error = await response.json().catch(() => ({ message: response.statusText }));
+      const error = await response
+        .json()
+        .catch(() => ({ message: response.statusText }));
       throw new Error(error.message || error.error || 'Failed to feed Koi');
     }
-    
+
     const result = await response.json();
-    
+
     // Validate and parse metadata
     const metadata = AssetMetadataSchema.parse(result.metadata);
-    
+
     // Update local VTXO with new metadata (xp, lastFedBlock)
     const allVtxos = this.getStorage();
     for (const addr in allVtxos) {
-      const index = allVtxos[addr].findIndex(v => v.txid === vtxo.txid);
+      const index = allVtxos[addr].findIndex((v) => v.txid === vtxo.txid);
       if (index !== -1) {
         allVtxos[addr][index].metadata = result.metadata; // <--- SAVE NEW STATE
         allVtxos[addr][index].assetId = result.metadata.dna; // Preserve assetId
@@ -1147,7 +1263,7 @@ export class MockArkClient {
         break;
       }
     }
-    
+
     return { success: result.success, metadata };
   }
 
@@ -1157,9 +1273,15 @@ export class MockArkClient {
    * @param child - The child VTXO with metadata to verify
    * @returns Promise<boolean> - true if genetics are valid, false otherwise
    */
-  async verifyGenetics(child: Vtxo & { metadata?: AssetMetadata }): Promise<boolean> {
+  async verifyGenetics(
+    child: Vtxo & { metadata?: AssetMetadata },
+  ): Promise<boolean> {
     // Check: If no parents, return true (Gen 0 is axiomatic)
-    if (!child.metadata || !child.metadata.parents || child.metadata.parents.length === 0) {
+    if (
+      !child.metadata ||
+      !child.metadata.parents ||
+      child.metadata.parents.length === 0
+    ) {
       return true;
     }
 
@@ -1179,14 +1301,16 @@ export class MockArkClient {
     // Try to find parents in local storage first
     const parent1Txid = asTxId(parent1Id);
     const parent2Txid = asTxId(parent2Id);
-    
+
     let parent1Vtxo = this.findVtxoByTxid(parent1Txid);
     let parent2Vtxo = this.findVtxoByTxid(parent2Txid);
 
     // Fallback: If not in local storage, fetch from ASP
     if (!parent1Vtxo || !parent1Vtxo.metadata) {
       try {
-        const response = await fetch(`http://localhost:7070/v1/assets/${parent1Id}`);
+        const response = await fetch(
+          `http://localhost:7070/v1/assets/${parent1Id}`,
+        );
         if (!response.ok) {
           return false;
         }
@@ -1204,7 +1328,9 @@ export class MockArkClient {
           address: '' as Address,
           spent: false,
         };
-        parent1Vtxo = { ...parent1Vtxo, metadata } as Vtxo & { metadata?: AssetMetadata };
+        parent1Vtxo = { ...parent1Vtxo, metadata } as Vtxo & {
+          metadata?: AssetMetadata;
+        };
       } catch {
         return false;
       }
@@ -1212,7 +1338,9 @@ export class MockArkClient {
 
     if (!parent2Vtxo || !parent2Vtxo.metadata) {
       try {
-        const response = await fetch(`http://localhost:7070/v1/assets/${parent2Id}`);
+        const response = await fetch(
+          `http://localhost:7070/v1/assets/${parent2Id}`,
+        );
         if (!response.ok) {
           return false;
         }
@@ -1230,7 +1358,9 @@ export class MockArkClient {
           address: '' as Address,
           spent: false,
         };
-        parent2Vtxo = { ...parent2Vtxo, metadata } as Vtxo & { metadata?: AssetMetadata };
+        parent2Vtxo = { ...parent2Vtxo, metadata } as Vtxo & {
+          metadata?: AssetMetadata;
+        };
       } catch {
         return false;
       }
@@ -1245,7 +1375,7 @@ export class MockArkClient {
     const calculatedDNA = mixGenomes(
       parent1Vtxo.metadata.dna,
       parent2Vtxo.metadata.dna,
-      child.metadata.entropy
+      child.metadata.entropy,
     );
 
     // Compare: return calculatedDNA === child.metadata.dna
@@ -1255,4 +1385,3 @@ export class MockArkClient {
 
 // Export a singleton instance (constructor is empty, so this is safe)
 export const mockArkClient = new MockArkClient();
-

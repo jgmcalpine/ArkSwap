@@ -66,7 +66,6 @@ const getFinShapeFromByte = (value: number): KoiFinShape => {
   return value % 2 === 0 ? 'Tech' : 'Organic';
 };
 
-
 const normaliseDna = (dna: string): string => {
   const trimmed = dna.trim().toLowerCase().replace(/^0x/, '');
   if (trimmed.length >= 64) {
@@ -120,7 +119,8 @@ export const parseDna = (dna: string | null | undefined): DnaTraits | null => {
   // Symmetry from Byte 10 (same as rarity byte, but we use it for symmetry logic)
   const symmetryByte = bytes[10] ?? 0;
   const symmetryValue = symmetryByte;
-  const symmetryLabel: 'Chaotic' | 'Perfect' = symmetryValue < 128 ? 'Chaotic' : 'Perfect';
+  const symmetryLabel: 'Chaotic' | 'Perfect' =
+    symmetryValue < 128 ? 'Chaotic' : 'Perfect';
   const symmetryPercentage = Math.round((symmetryValue / BYTE_MAX) * 100);
 
   return {
@@ -155,7 +155,6 @@ const getAccentColorName = (hue: number): string => {
   return 'Infra Pink';
 };
 
-export const useDnaParser = (dna: string | null | undefined): DnaTraits | null =>
-  useMemo(() => parseDna(dna), [dna]);
-
-
+export const useDnaParser = (
+  dna: string | null | undefined,
+): DnaTraits | null => useMemo(() => parseDna(dna), [dna]);

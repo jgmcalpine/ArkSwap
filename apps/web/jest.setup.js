@@ -28,4 +28,3 @@ global.localStorage = localStorageMock;
 global.window = {
   localStorage: localStorageMock,
 };
-

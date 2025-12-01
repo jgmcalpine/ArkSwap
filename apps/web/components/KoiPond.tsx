@@ -7,7 +7,11 @@ import { cn } from '../lib/utils';
 import { mockArkClient } from '@arkswap/client';
 import type { Vtxo, AssetMetadata } from '@arkswap/protocol';
 import { getErrorMessage } from '../lib/error-utils';
-import { parseDna, type DnaTraits, type KoiRarity } from '../hooks/useDnaParser';
+import {
+  parseDna,
+  type DnaTraits,
+  type KoiRarity,
+} from '../hooks/useDnaParser';
 import { getBitcoinInfo } from '../lib/api';
 import { KoiCard } from './koi/KoiCard';
 import { KoiDetailModal } from './koi/KoiDetailModal';
@@ -27,12 +31,22 @@ type SelectedKoi =
   | { source: 'wallet'; vtxo: ExtendedVtxo }
   | { source: 'pond'; txid: string; metadata: AssetMetadata };
 
-export function KoiPond({ walletAddress, vtxos, onMint, onEnterPond }: KoiPondProps) {
+export function KoiPond({
+  walletAddress,
+  vtxos,
+  onMint,
+  onEnterPond,
+}: KoiPondProps) {
   const [isMinting, setIsMinting] = useState(false);
   const [mintError, setMintError] = useState<string | null>(null);
   const [mintStatus, setMintStatus] = useState<string | null>(null);
-  const [stats, setStats] = useState<{ total: number; distribution: Record<string, number> } | null>(null);
-  const [pond, setPond] = useState<Array<{ txid: string; metadata: AssetMetadata }>>([]);
+  const [stats, setStats] = useState<{
+    total: number;
+    distribution: Record<string, number>;
+  } | null>(null);
+  const [pond, setPond] = useState<
+    Array<{ txid: string; metadata: AssetMetadata }>
+  >([]);
   const [isEnteringPond, setIsEnteringPond] = useState<string | null>(null);
   const [pondError, setPondError] = useState<string | null>(null);
   const [showPond, setShowPond] = useState(false);
@@ -52,7 +66,7 @@ export function KoiPond({ walletAddress, vtxos, onMint, onEnterPond }: KoiPondPr
 
   // Clear mint status when a new asset appears
   useEffect(() => {
-    const currentAssetCount = vtxos.filter(v => v.metadata).length;
+    const currentAssetCount = vtxos.filter((v) => v.metadata).length;
     if (currentAssetCount > previousAssetCountRef.current && mintStatus) {
       setMintStatus(null);
     }
@@ -93,10 +107,9 @@ export function KoiPond({ walletAddress, vtxos, onMint, onEnterPond }: KoiPondPr
     return () => clearInterval(interval);
   }, [showPond]);
 
-
   const handleMint = async () => {
     if (!walletAddress) return;
-    
+
     setIsMinting(true);
     setMintError(null);
     setMintStatus(null);
@@ -105,7 +118,7 @@ export function KoiPond({ walletAddress, vtxos, onMint, onEnterPond }: KoiPondPr
       setMintStatus('Fish sent to pool. Waiting for Round...');
       onMint?.();
     } catch (error) {
-      console.error("Mint failed", error);
+      console.error('Mint failed', error);
       setMintError(getErrorMessage(error));
     } finally {
       setIsMinting(false);
@@ -137,7 +150,9 @@ export function KoiPond({ walletAddress, vtxos, onMint, onEnterPond }: KoiPondPr
     }
   };
 
-  const koiAssets: ExtendedVtxo[] = vtxos.filter((v) => v.metadata) as ExtendedVtxo[];
+  const koiAssets: ExtendedVtxo[] = vtxos.filter(
+    (v) => v.metadata,
+  ) as ExtendedVtxo[];
 
   const getRarityForDna = (dna: string): KoiRarity => {
     const traits = parseDna(dna);
@@ -149,15 +164,24 @@ export function KoiPond({ walletAddress, vtxos, onMint, onEnterPond }: KoiPondPr
     setSelectedKoi({ source: 'wallet', vtxo });
   };
 
-  const handleOpenPondKoi = (item: { txid: string; metadata: AssetMetadata }) => {
-    setSelectedKoi({ source: 'pond', txid: item.txid, metadata: item.metadata });
+  const handleOpenPondKoi = (item: {
+    txid: string;
+    metadata: AssetMetadata;
+  }) => {
+    setSelectedKoi({
+      source: 'pond',
+      txid: item.txid,
+      metadata: item.metadata,
+    });
   };
 
   const handleCloseModal = () => {
     setSelectedKoi(null);
   };
 
-  const handleShowOffSelected: MouseEventHandler<HTMLButtonElement> = (event) => {
+  const handleShowOffSelected: MouseEventHandler<HTMLButtonElement> = (
+    event,
+  ) => {
     event.preventDefault();
     if (!selectedKoi || selectedKoi.source !== 'wallet') {
       return;
@@ -165,9 +189,15 @@ export function KoiPond({ walletAddress, vtxos, onMint, onEnterPond }: KoiPondPr
     void handleEnterPond(selectedKoi.vtxo);
   };
 
-  const handleFeedSelected: MouseEventHandler<HTMLButtonElement> = async (event) => {
+  const handleFeedSelected: MouseEventHandler<HTMLButtonElement> = async (
+    event,
+  ) => {
     event.preventDefault();
-    if (!selectedKoi || selectedKoi.source !== 'wallet' || !selectedKoi.vtxo.metadata) {
+    if (
+      !selectedKoi ||
+      selectedKoi.source !== 'wallet' ||
+      !selectedKoi.vtxo.metadata
+    ) {
       return;
     }
 
@@ -204,7 +234,9 @@ export function KoiPond({ walletAddress, vtxos, onMint, onEnterPond }: KoiPondPr
         : undefined;
 
   const selectedDna = selectedMetadata?.dna ?? '';
-  const selectedTraits: DnaTraits | null = selectedDna ? parseDna(selectedDna) : null;
+  const selectedTraits: DnaTraits | null = selectedDna
+    ? parseDna(selectedDna)
+    : null;
   const selectedRarity: KoiRarity = selectedTraits?.rarity ?? 'Common';
   const selectedTxId =
     selectedKoi?.source === 'wallet'
@@ -222,22 +254,39 @@ export function KoiPond({ walletAddress, vtxos, onMint, onEnterPond }: KoiPondPr
         <div className="rounded-xl border border-gray-800 bg-gray-900/50 p-6 backdrop-blur-sm">
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
             <div className="flex-1 min-w-0">
-              <h2 className="text-sm font-medium text-gray-400">Global Census</h2>
+              <h2 className="text-sm font-medium text-gray-400">
+                Global Census
+              </h2>
               <p className="mt-2 text-3xl font-bold text-white">
-                Population: <span className="text-cyan-400">{stats.total.toLocaleString()}</span>
+                Population:{' '}
+                <span className="text-cyan-400">
+                  {stats.total.toLocaleString()}
+                </span>
               </p>
               <div className="mt-3 flex flex-wrap gap-4 text-sm">
                 <span className="text-gray-400">
-                  Common: <span className="text-gray-300">{stats.distribution.common}</span>
+                  Common:{' '}
+                  <span className="text-gray-300">
+                    {stats.distribution.common}
+                  </span>
                 </span>
                 <span className="text-gray-400">
-                  Rare: <span className="text-cyan-300">{stats.distribution.rare}</span>
+                  Rare:{' '}
+                  <span className="text-cyan-300">
+                    {stats.distribution.rare}
+                  </span>
                 </span>
                 <span className="text-gray-400">
-                  Epic: <span className="text-purple-300">{stats.distribution.epic}</span>
+                  Epic:{' '}
+                  <span className="text-purple-300">
+                    {stats.distribution.epic}
+                  </span>
                 </span>
                 <span className="text-gray-400">
-                  Legendary: <span className="text-yellow-300">{stats.distribution.legendary}</span>
+                  Legendary:{' '}
+                  <span className="text-yellow-300">
+                    {stats.distribution.legendary}
+                  </span>
                 </span>
               </div>
             </div>
@@ -252,15 +301,22 @@ export function KoiPond({ walletAddress, vtxos, onMint, onEnterPond }: KoiPondPr
       <div className="rounded-xl border border-gray-800 bg-gray-900/50 p-6 backdrop-blur-sm">
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           <div className="flex-1 min-w-0">
-            <h3 className="text-sm font-medium text-gray-400">SatoshiKoi Pond</h3>
+            <h3 className="text-sm font-medium text-gray-400">
+              SatoshiKoi Pond
+            </h3>
             <p className="mt-1 text-sm text-gray-500">
-              Mint a Gen 0 Koi that will appear in your wallet after the next Round (5 seconds)
+              Mint a Gen 0 Koi that will appear in your wallet after the next
+              Round (5 seconds)
             </p>
             {mintStatus && (
-              <p className="mt-2 text-sm text-cyan-400 break-words">{mintStatus}</p>
+              <p className="mt-2 text-sm text-cyan-400 break-words">
+                {mintStatus}
+              </p>
             )}
             {mintError && (
-              <p className="mt-2 text-sm text-red-400 break-words">{mintError}</p>
+              <p className="mt-2 text-sm text-red-400 break-words">
+                {mintError}
+              </p>
             )}
           </div>
           <button
@@ -272,7 +328,7 @@ export function KoiPond({ walletAddress, vtxos, onMint, onEnterPond }: KoiPondPr
               'hover:bg-cyan-900/30 hover:text-cyan-300',
               'focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:ring-offset-2 focus:ring-offset-gray-900',
               'disabled:cursor-not-allowed disabled:opacity-50',
-              'w-full sm:w-auto flex-shrink-0'
+              'w-full sm:w-auto flex-shrink-0',
             )}
           >
             <Fish className="h-4 w-4" />
@@ -287,7 +343,9 @@ export function KoiPond({ walletAddress, vtxos, onMint, onEnterPond }: KoiPondPr
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2">
               <Fish className="h-5 w-5 text-cyan-400" />
-              <h3 className="text-sm font-medium text-gray-400">Your Cyber-Organic Koi</h3>
+              <h3 className="text-sm font-medium text-gray-400">
+                Your Cyber-Organic Koi
+              </h3>
             </div>
             <button
               onClick={() => setShowBreedingModal(true)}
@@ -297,7 +355,7 @@ export function KoiPond({ walletAddress, vtxos, onMint, onEnterPond }: KoiPondPr
                 'text-sm font-medium text-purple-400 transition-colors',
                 'hover:bg-purple-900/30 hover:text-purple-300',
                 'focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 focus:ring-offset-gray-900',
-                'disabled:cursor-not-allowed disabled:opacity-50'
+                'disabled:cursor-not-allowed disabled:opacity-50',
               )}
             >
               Breed
@@ -328,7 +386,9 @@ export function KoiPond({ walletAddress, vtxos, onMint, onEnterPond }: KoiPondPr
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2">
             <Fish className="h-5 w-5 text-cyan-400" />
-            <h3 className="text-sm font-medium text-gray-400">The Grand Pond</h3>
+            <h3 className="text-sm font-medium text-gray-400">
+              The Grand Pond
+            </h3>
           </div>
           <button
             onClick={() => setShowPond(!showPond)}
@@ -336,16 +396,14 @@ export function KoiPond({ walletAddress, vtxos, onMint, onEnterPond }: KoiPondPr
               'flex items-center gap-2 rounded-lg border border-gray-700 bg-gray-800 px-3 py-1.5',
               'text-xs font-medium text-gray-400 transition-colors',
               'hover:bg-gray-700 hover:text-gray-300',
-              'focus:outline-none focus:ring-2 focus:ring-cyan-500'
+              'focus:outline-none focus:ring-2 focus:ring-cyan-500',
             )}
           >
             {showPond ? 'Hide' : 'View Pond'}
           </button>
         </div>
-        
-        {pondError && (
-          <p className="text-sm text-red-400 mb-4">{pondError}</p>
-        )}
+
+        {pondError && <p className="text-sm text-red-400 mb-4">{pondError}</p>}
 
         {showPond && (
           <div className="space-y-3">
@@ -384,14 +442,22 @@ export function KoiPond({ walletAddress, vtxos, onMint, onEnterPond }: KoiPondPr
         coinAgeBlocks={null}
         ownerLabel={selectedOwnerLabel}
         isEnteringPond={
-          selectedKoi?.source === 'wallet' ? isEnteringPond === selectedKoi.vtxo.txid : false
+          selectedKoi?.source === 'wallet'
+            ? isEnteringPond === selectedKoi.vtxo.txid
+            : false
         }
-        onShowOff={selectedKoi?.source === 'wallet' ? handleShowOffSelected : undefined}
+        onShowOff={
+          selectedKoi?.source === 'wallet' ? handleShowOffSelected : undefined
+        }
         metadata={selectedMetadata}
         currentBlock={currentBlock}
-        onFeed={selectedKoi?.source === 'wallet' ? handleFeedSelected : undefined}
+        onFeed={
+          selectedKoi?.source === 'wallet' ? handleFeedSelected : undefined
+        }
         isFeeding={
-          selectedKoi?.source === 'wallet' ? isFeeding === selectedKoi.vtxo.txid : false
+          selectedKoi?.source === 'wallet'
+            ? isFeeding === selectedKoi.vtxo.txid
+            : false
         }
       />
       <BreedingModal
@@ -402,4 +468,3 @@ export function KoiPond({ walletAddress, vtxos, onMint, onEnterPond }: KoiPondPr
     </div>
   );
 }
-

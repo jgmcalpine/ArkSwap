@@ -1,4 +1,11 @@
-import { Controller, Post, Body, HttpException, HttpStatus, Logger } from '@nestjs/common';
+import {
+  Controller,
+  Post,
+  Body,
+  HttpException,
+  HttpStatus,
+  Logger,
+} from '@nestjs/common';
 import { BitcoinService } from '../bitcoin/bitcoin.service';
 
 interface FaucetUserRequest {
@@ -41,7 +48,8 @@ export class FaucetController {
       throw new HttpException(
         {
           success: false,
-          message: error instanceof Error ? error.message : 'Failed to fund maker',
+          message:
+            error instanceof Error ? error.message : 'Failed to fund maker',
         },
         HttpStatus.INTERNAL_SERVER_ERROR,
       );
@@ -80,11 +88,11 @@ export class FaucetController {
       throw new HttpException(
         {
           success: false,
-          message: error instanceof Error ? error.message : 'Failed to fund user',
+          message:
+            error instanceof Error ? error.message : 'Failed to fund user',
         },
         HttpStatus.INTERNAL_SERVER_ERROR,
       );
     }
   }
 }
-

@@ -31,7 +31,10 @@ export class TransferService implements OnModuleInit {
     // 1. Calculate transaction hash
     // Note: Real Ark uses BIP-341 serialization (SIGHASH_ALL).
     // For this PoC, we use a deterministic string format (not JSON).
-    const inputsWithoutSigs = tx.inputs.map(({ txid, vout }) => ({ txid, vout }));
+    const inputsWithoutSigs = tx.inputs.map(({ txid, vout }) => ({
+      txid,
+      vout,
+    }));
     const txHash = await getTxHash(inputsWithoutSigs, tx.outputs);
     const txHashBuffer = Buffer.from(txHash, 'hex');
 
@@ -43,12 +46,16 @@ export class TransferService implements OnModuleInit {
       // Check Existence
       const vtxo = this.vtxoStore.getVtxo(input.txid, input.vout);
       if (!vtxo) {
-        throw new BadRequestException(`VTXO not found: ${input.txid}:${input.vout}`);
+        throw new BadRequestException(
+          `VTXO not found: ${input.txid}:${input.vout}`,
+        );
       }
-      
+
       // Check Double Spend (Committed)
       if (vtxo.spent) {
-        throw new BadRequestException(`VTXO already spent: ${input.txid}:${input.vout}`);
+        throw new BadRequestException(
+          `VTXO already spent: ${input.txid}:${input.vout}`,
+        );
       }
 
       // Verify Ownership
@@ -56,27 +63,40 @@ export class TransferService implements OnModuleInit {
         // Decode Address to Pubkey
         // Use toOutputScript to get byte-perfect script, then extract pubkey
         // Must specify regtest network to accept bcrt1 addresses
-        const outputScript = bitcoin.address.toOutputScript(vtxo.address, bitcoin.networks.regtest);
-        
+        const outputScript = bitcoin.address.toOutputScript(
+          vtxo.address,
+          bitcoin.networks.regtest,
+        );
+
         // Taproot Script is: OP_1 (0x51) <32-byte-pubkey>
         // So we slice from index 2 to 34
-        if (outputScript.length !== 34 || outputScript[0] !== 0x51 || outputScript[1] !== 0x20) {
-          throw new BadRequestException(`Invalid Taproot script for address ${vtxo.address}`);
+        if (
+          outputScript.length !== 34 ||
+          outputScript[0] !== 0x51 ||
+          outputScript[1] !== 0x20
+        ) {
+          throw new BadRequestException(
+            `Invalid Taproot script for address ${vtxo.address}`,
+          );
         }
-        
+
         const pubkey = Buffer.from(outputScript.slice(2, 34));
         const signature = Buffer.from(input.signature, 'hex');
 
         // Verify Schnorr Signature
         const isValid = this.ecc.verifySchnorr(txHashBuffer, pubkey, signature);
-        
+
         if (!isValid) {
-          throw new BadRequestException(`Invalid Schnorr signature for input ${input.txid}`);
+          throw new BadRequestException(
+            `Invalid Schnorr signature for input ${input.txid}`,
+          );
         }
       } catch (error) {
         // Unwrap BadRequestExceptions to keep messages clean
         if (error instanceof BadRequestException) throw error;
-        throw new BadRequestException(`Signature verification failed: ${error}`);
+        throw new BadRequestException(
+          `Signature verification failed: ${error}`,
+        );
       }
 
       totalInputAmount += vtxo.amount;
@@ -85,7 +105,9 @@ export class TransferService implements OnModuleInit {
     // 3. Validate Outputs
     for (const output of tx.outputs) {
       if (output.amount <= 0) {
-        throw new BadRequestException(`Invalid output amount: ${output.amount}`);
+        throw new BadRequestException(
+          `Invalid output amount: ${output.amount}`,
+        );
       }
       totalOutputAmount += output.amount;
     }

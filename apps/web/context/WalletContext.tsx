@@ -1,6 +1,13 @@
 'use client';
 
-import { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
+import {
+  createContext,
+  useContext,
+  useState,
+  useEffect,
+  useCallback,
+  ReactNode,
+} from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { mockArkClient } from '@arkswap/client';
 import type { Vtxo, AssetMetadata } from '@arkswap/protocol';
@@ -43,7 +50,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
       try {
         // This now returns string | null
         const storedAddress = await mockArkClient.getAddress();
-        
+
         if (storedAddress) {
           setAddress(storedAddress);
           setIsConnected(true);
@@ -53,7 +60,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
           setAddress(null);
         }
       } catch (e) {
-        console.error("Wallet load error", e);
+        console.error('Wallet load error', e);
         setIsConnected(false);
       } finally {
         setIsInitialLoading(false);
@@ -72,23 +79,25 @@ export function WalletProvider({ children }: { children: ReactNode }) {
         return { balance: 0, paymentBalance: 0, vtxos: [] as ExtendedVtxo[] };
       }
       await mockArkClient.fetchFromASP(address);
-      
+
       // Get VTXOs from main address
       const mainVtxos = mockArkClient.getVtxos(address);
-      
+
       // Get VTXOs from all watched addresses (asset addresses)
       const watchedAddresses = mockArkClient.getWatchedAddresses();
-      const watchedVtxos = watchedAddresses.flatMap(addr => mockArkClient.getVtxos(addr));
-      
+      const watchedVtxos = watchedAddresses.flatMap((addr) =>
+        mockArkClient.getVtxos(addr),
+      );
+
       // Combine all VTXOs (main + watched)
       const allVtxos = [...mainVtxos, ...watchedVtxos];
 
       // Calculate balances from combined VTXOs
       const balance = allVtxos.reduce((sum, vtxo) => sum + vtxo.amount, 0);
       const paymentBalance = allVtxos
-        .filter(vtxo => !vtxo.metadata)
+        .filter((vtxo) => !vtxo.metadata)
         .reduce((sum, vtxo) => sum + vtxo.amount, 0);
-      
+
       return {
         balance,
         paymentBalance,
@@ -155,4 +164,3 @@ export function useWallet(): WalletContextType {
   }
   return context;
 }
-

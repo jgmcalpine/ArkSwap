@@ -9,7 +9,9 @@ interface FaucetUserResponse {
   amount: number;
 }
 
-export async function requestFaucet(address: string): Promise<FaucetUserResponse> {
+export async function requestFaucet(
+  address: string,
+): Promise<FaucetUserResponse> {
   const response = await fetch(`${API_BASE_URL}/faucet/user`, {
     method: 'POST',
     headers: {
@@ -19,7 +21,9 @@ export async function requestFaucet(address: string): Promise<FaucetUserResponse
   });
 
   if (!response.ok) {
-    const error = await response.json().catch(() => ({ message: 'Failed to request faucet' }));
+    const error = await response
+      .json()
+      .catch(() => ({ message: 'Failed to request faucet' }));
     throw new Error(error.message || 'Failed to request faucet');
   }
 
@@ -37,7 +41,9 @@ export interface SwapQuoteResponse {
   makerPubkey: string;
 }
 
-export async function requestSwapQuote(amount: number): Promise<SwapQuoteResponse> {
+export async function requestSwapQuote(
+  amount: number,
+): Promise<SwapQuoteResponse> {
   const response = await fetch(`${API_BASE_URL}/swap/quote`, {
     method: 'POST',
     headers: {
@@ -47,7 +53,9 @@ export async function requestSwapQuote(amount: number): Promise<SwapQuoteRespons
   });
 
   if (!response.ok) {
-    const error = await response.json().catch(() => ({ message: 'Failed to request swap quote' }));
+    const error = await response
+      .json()
+      .catch(() => ({ message: 'Failed to request swap quote' }));
     throw new Error(error.message || 'Failed to request swap quote');
   }
 
@@ -79,7 +87,9 @@ export async function commitSwap(
   });
 
   if (!response.ok) {
-    const error = await response.json().catch(() => ({ message: 'Failed to commit swap' }));
+    const error = await response
+      .json()
+      .catch(() => ({ message: 'Failed to commit swap' }));
     throw new Error(error.message || 'Failed to commit swap');
   }
 
@@ -101,10 +111,11 @@ export async function getBitcoinInfo(): Promise<BitcoinInfoResponse> {
   });
 
   if (!response.ok) {
-    const error = await response.json().catch(() => ({ message: 'Failed to get bitcoin info' }));
+    const error = await response
+      .json()
+      .catch(() => ({ message: 'Failed to get bitcoin info' }));
     throw new Error(error.message || 'Failed to get bitcoin info');
   }
 
   return response.json() as Promise<BitcoinInfoResponse>;
 }
-

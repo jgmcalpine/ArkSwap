@@ -1,8 +1,18 @@
-import { Injectable, Logger, OnModuleInit, HttpException, HttpStatus } from '@nestjs/common';
+import {
+  Injectable,
+  Logger,
+  OnModuleInit,
+  HttpException,
+  HttpStatus,
+} from '@nestjs/common';
 import { HttpService } from '@nestjs/axios';
 import { firstValueFrom } from 'rxjs';
 import { isAxiosError } from 'axios';
-import { BITCOIN_RPC_URL, BITCOIN_RPC_USER, BITCOIN_RPC_PASS } from './bitcoin.constants';
+import {
+  BITCOIN_RPC_URL,
+  BITCOIN_RPC_USER,
+  BITCOIN_RPC_PASS,
+} from './bitcoin.constants';
 
 interface JsonRpcRequest {
   jsonrpc: string;
@@ -51,19 +61,15 @@ export class BitcoinService implements OnModuleInit {
 
     try {
       const response = await firstValueFrom(
-        this.httpService.post<JsonRpcResponse>(
-          BITCOIN_RPC_URL,
-          request,
-          {
-            auth: {
-              username: BITCOIN_RPC_USER,
-              password: BITCOIN_RPC_PASS,
-            },
-            headers: {
-              'Content-Type': 'application/json',
-            },
+        this.httpService.post<JsonRpcResponse>(BITCOIN_RPC_URL, request, {
+          auth: {
+            username: BITCOIN_RPC_USER,
+            password: BITCOIN_RPC_PASS,
           },
-        ),
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        }),
       );
 
       if (response.data.error) {
@@ -92,8 +98,13 @@ export class BitcoinService implements OnModuleInit {
   }
 
   async mineToAddress(blocks: number, address: string): Promise<string[]> {
-    const blockHashes = await this.callRpc('generatetoaddress', [blocks, address]);
-    return Array.isArray(blockHashes) ? blockHashes.map(String) : [String(blockHashes)];
+    const blockHashes = await this.callRpc('generatetoaddress', [
+      blocks,
+      address,
+    ]);
+    return Array.isArray(blockHashes)
+      ? blockHashes.map(String)
+      : [String(blockHashes)];
   }
 
   /**
@@ -119,13 +130,15 @@ export class BitcoinService implements OnModuleInit {
 
     try {
       const txid = await this.callRpc('sendtoaddress', [address, amountBtc]);
-      this.logger.log(`✅ Sent ${amountSats} sats (${amountBtc} BTC) to ${address}, txid: ${txid}`);
+      this.logger.log(
+        `✅ Sent ${amountSats} sats (${amountBtc} BTC) to ${address}, txid: ${txid}`,
+      );
       return String(txid);
     } catch (error) {
       // Log the specific Bitcoin Core RPC error
       // callRpc already formats RPC errors, but we log the full error for debugging
       let errorMessage = 'Failed to send Bitcoin';
-      
+
       if (error instanceof Error) {
         errorMessage = error.message;
         // Log the full error for debugging
@@ -133,7 +146,7 @@ export class BitcoinService implements OnModuleInit {
           `Bitcoin sendToAddress failed: ${errorMessage}`,
           error.stack,
         );
-        
+
         // Try to extract raw RPC error if available (for more detailed logging)
         if (isAxiosError(error) && error.response?.data?.error) {
           const rpcError = error.response.data.error;
@@ -151,7 +164,10 @@ export class BitcoinService implements OnModuleInit {
               `Bitcoin RPC Error: ${responseData.error.message} (code: ${responseData.error.code})`,
             );
           } else {
-            this.logger.error('Bitcoin RPC axios error:', JSON.stringify(responseData));
+            this.logger.error(
+              'Bitcoin RPC axios error:',
+              JSON.stringify(responseData),
+            );
             errorMessage = `Bitcoin RPC request failed: ${error.message}`;
           }
         } else {
@@ -173,4 +189,3 @@ export class BitcoinService implements OnModuleInit {
     }
   }
 }
-

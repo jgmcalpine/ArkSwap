@@ -1,4 +1,12 @@
-import { AssetVtxoSchema, AssetMetadataSchema, type AssetVtxo, type Vtxo, asTxId, asAddress, asGenome } from '../src/index';
+import {
+  AssetVtxoSchema,
+  AssetMetadataSchema,
+  type AssetVtxo,
+  type Vtxo,
+  asTxId,
+  asAddress,
+  asGenome,
+} from '../src/index';
 
 describe('AssetMetadataSchema', () => {
   describe('Valid Cases', () => {
@@ -12,7 +20,7 @@ describe('AssetMetadataSchema', () => {
       };
 
       const result = AssetMetadataSchema.parse(validMetadata);
-      
+
       expect(result.dna).toBe('a'.repeat(64));
       expect(result.generation).toBe(0);
       expect(result.cooldownBlock).toBe(100);
@@ -32,7 +40,7 @@ describe('AssetMetadataSchema', () => {
       };
 
       const result = AssetMetadataSchema.parse(validMetadata);
-      
+
       expect(result.xp).toBe(0);
     });
 
@@ -46,7 +54,7 @@ describe('AssetMetadataSchema', () => {
       };
 
       const result = AssetMetadataSchema.parse(validMetadata);
-      
+
       expect(result.dna).toBe('b'.repeat(64));
       expect(result.generation).toBe(1);
       expect(result.xp).toBe(100);
@@ -63,7 +71,7 @@ describe('AssetMetadataSchema', () => {
       };
 
       const result = AssetMetadataSchema.parse(validMetadata);
-      
+
       expect(result.dna).toBe('b'.repeat(64));
       expect(result.generation).toBe(1);
       expect(result.xp).toBe(50);
@@ -80,7 +88,7 @@ describe('AssetMetadataSchema', () => {
       };
 
       const result = AssetMetadataSchema.parse(validMetadata);
-      
+
       expect(result.generation).toBe(5);
       expect(result.xp).toBe(250);
     });
@@ -220,7 +228,9 @@ describe('AssetVtxoSchema', () => {
     txid: asTxId('1'.repeat(64)),
     vout: 0,
     amount: 1000,
-    address: asAddress('bcrt1p123456789012345678901234567890123456789012345678901234567890'),
+    address: asAddress(
+      'bcrt1p123456789012345678901234567890123456789012345678901234567890',
+    ),
     spent: false,
   });
 
@@ -241,7 +251,7 @@ describe('AssetVtxoSchema', () => {
       };
 
       const result = AssetVtxoSchema.parse(validAssetVtxo);
-      
+
       expect(result.txid).toBe('1'.repeat(64));
       expect(result.vout).toBe(0);
       expect(result.amount).toBe(1000);
@@ -262,7 +272,7 @@ describe('AssetVtxoSchema', () => {
       };
 
       const result = AssetVtxoSchema.parse(validAssetVtxo);
-      
+
       expect(result.metadata.xp).toBe(150);
     });
 
@@ -277,7 +287,7 @@ describe('AssetVtxoSchema', () => {
       };
 
       const result = AssetVtxoSchema.parse(validAssetVtxo);
-      
+
       expect(result.metadata.parents).toEqual(['2'.repeat(64), '3'.repeat(64)]);
     });
 
@@ -293,7 +303,7 @@ describe('AssetVtxoSchema', () => {
       };
 
       const result = AssetVtxoSchema.parse(validAssetVtxo);
-      
+
       expect(result.assetId).toBe(dna);
       expect(result.metadata.dna).toBe(dna);
     });
@@ -395,7 +405,8 @@ describe('AssetVtxoSchema', () => {
         txid: '1'.repeat(63), // Too short
         vout: 0,
         amount: 1000,
-        address: 'bcrt1p123456789012345678901234567890123456789012345678901234567890',
+        address:
+          'bcrt1p123456789012345678901234567890123456789012345678901234567890',
         spent: false,
         assetId: 'koi_abc123',
         metadata: createValidMetadata(),
@@ -431,7 +442,7 @@ describe('AssetVtxoSchema', () => {
       };
 
       const result = processVtxo(vtxo);
-      
+
       expect(result.txid).toBe(assetVtxo.txid);
       expect(result.vout).toBe(assetVtxo.vout);
       expect(result.amount).toBe(assetVtxo.amount);
@@ -483,4 +494,3 @@ describe('AssetVtxoSchema', () => {
     });
   });
 });
-

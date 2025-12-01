@@ -27,7 +27,7 @@ export class SignatureVerifierService implements OnModuleInit {
   /**
    * Verifies a Schnorr signature against a pubkey derived from a Taproot address
    * Used for verifying signatures from asset VTXOs (tweaked addresses)
-   * 
+   *
    * @param message - The message that was signed
    * @param signature - Hex string signature (128 hex chars = 64 bytes)
    * @param address - Taproot address to extract pubkey from
@@ -45,13 +45,22 @@ export class SignatureVerifierService implements OnModuleInit {
       const messageHashBuffer = Buffer.from(messageHash);
 
       // Decode VTXO Address -> Pubkey
-      const outputScript = bitcoin.address.toOutputScript(address, bitcoin.networks.regtest);
-      
+      const outputScript = bitcoin.address.toOutputScript(
+        address,
+        bitcoin.networks.regtest,
+      );
+
       // Taproot Script is: OP_1 (0x51) <32-byte-pubkey>
-      if (outputScript.length !== 34 || outputScript[0] !== 0x51 || outputScript[1] !== 0x20) {
-        throw new BadRequestException(`Invalid Taproot script for address ${address}`);
+      if (
+        outputScript.length !== 34 ||
+        outputScript[0] !== 0x51 ||
+        outputScript[1] !== 0x20
+      ) {
+        throw new BadRequestException(
+          `Invalid Taproot script for address ${address}`,
+        );
       }
-      
+
       const pubkey = Buffer.from(outputScript.slice(2, 34));
       const signatureBuffer = Buffer.from(signature, 'hex');
 
@@ -66,7 +75,7 @@ export class SignatureVerifierService implements OnModuleInit {
   /**
    * Verifies a Schnorr signature against a base user pubkey (not tweaked)
    * Used for breeding where signature is created with base pubkey
-   * 
+   *
    * @param message - The message that was signed
    * @param signature - Hex string signature (128 hex chars = 64 bytes)
    * @param userPubkey - Base user pubkey (64 hex chars = 32 bytes)
@@ -81,7 +90,9 @@ export class SignatureVerifierService implements OnModuleInit {
     try {
       // Validate userPubkey format
       if (!/^[0-9a-fA-F]{64}$/.test(userPubkey)) {
-        throw new BadRequestException('userPubkey must be 64 hex characters (32 bytes)');
+        throw new BadRequestException(
+          'userPubkey must be 64 hex characters (32 bytes)',
+        );
       }
 
       // Reconstruct the message hash (SHA256)
@@ -93,11 +104,14 @@ export class SignatureVerifierService implements OnModuleInit {
       const signatureBuffer = Buffer.from(signature, 'hex');
 
       // Verify Schnorr Signature
-      return this.ecc.verifySchnorr(messageHashBuffer, pubkeyBuffer, signatureBuffer);
+      return this.ecc.verifySchnorr(
+        messageHashBuffer,
+        pubkeyBuffer,
+        signatureBuffer,
+      );
     } catch (error) {
       if (error instanceof BadRequestException) throw error;
       throw new BadRequestException(`Signature verification failed: ${error}`);
     }
   }
 }
-

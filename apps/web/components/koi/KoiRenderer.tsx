@@ -30,8 +30,11 @@ const hexToBytes = (hex: string): number[] => {
 
 const hueFromByte = (byte: number): number => (byte / BYTE_MAX) * 360;
 
-const hslString = (hue: number, saturation: number, lightness: number): string =>
-  `hsl(${hue.toFixed(0)} ${saturation}% ${lightness}%)`;
+const hslString = (
+  hue: number,
+  saturation: number,
+  lightness: number,
+): string => `hsl(${hue.toFixed(0)} ${saturation}% ${lightness}%)`;
 
 const BODY_PATH =
   'M 150 80 C 120 92 104 120 100 154 C 96 188 96 230 102 270 C 108 310 118 344 130 372 C 138 392 144 410 150 424 C 156 410 162 392 170 372 C 182 344 192 310 198 270 C 204 230 204 188 200 154 C 196 120 180 92 150 80 Z';
@@ -66,7 +69,7 @@ const getPatternMode = (value: number): PatternMode => {
 
 const generateSpots = (bytes: number[], isSymmetric: boolean): SpotShape[] => {
   const spots: SpotShape[] = [];
-  const count = 3 + (bytes[4] ?? 0) % 4;
+  const count = 3 + ((bytes[4] ?? 0) % 4);
 
   for (let i = 0; i < count; i += 1) {
     const seedY = bytes[5 + i] ?? 0;
@@ -90,9 +93,12 @@ const generateSpots = (bytes: number[], isSymmetric: boolean): SpotShape[] => {
   return spots;
 };
 
-const generateCircuits = (bytes: number[], isSymmetric: boolean): CircuitShape[] => {
+const generateCircuits = (
+  bytes: number[],
+  isSymmetric: boolean,
+): CircuitShape[] => {
   const circuits: CircuitShape[] = [];
-  const count = 2 + (bytes[6] ?? 0) % 3;
+  const count = 2 + ((bytes[6] ?? 0) % 3);
 
   for (let i = 0; i < count; i += 1) {
     const seedY = bytes[7 + i] ?? 0;
@@ -337,7 +343,12 @@ const renderBarbels = (variant: BarbelsVariant, stroke: string): ReactNode => {
   );
 };
 
-const renderEye = (x: number, y: number, type: EyeType, accent: string): ReactNode => {
+const renderEye = (
+  x: number,
+  y: number,
+  type: EyeType,
+  accent: string,
+): ReactNode => {
   const socketRadius = 5;
   const baseProps = { cx: x, cy: y };
 
@@ -387,7 +398,13 @@ const renderEye = (x: number, y: number, type: EyeType, accent: string): ReactNo
       return (
         <g>
           <circle {...baseProps} r={socketRadius} fill="#020617" />
-          <circle {...baseProps} r={2.8} fill="none" stroke={accent} strokeWidth={1} />
+          <circle
+            {...baseProps}
+            r={2.8}
+            fill="none"
+            stroke={accent}
+            strokeWidth={1}
+          />
           <line
             x1={x - 3}
             y1={y}
@@ -420,7 +437,11 @@ const renderEye = (x: number, y: number, type: EyeType, accent: string): ReactNo
   }
 };
 
-const renderEyes = (eyeType: EyeType, accent: string, eyeGlowId: string): ReactNode => (
+const renderEyes = (
+  eyeType: EyeType,
+  accent: string,
+  eyeGlowId: string,
+): ReactNode => (
   <g filter={`url(#${eyeGlowId})`}>
     {renderEye(128, 112, eyeType, accent)}
     {renderEye(172, 112, eyeType, accent)}
@@ -453,8 +474,14 @@ export const KoiRenderer: FC<KoiRendererProps> = ({ dna, size = 220 }) => {
   const eyeTrait = getEyeTrait(bytes[8] ?? 0);
   const eyeType: EyeType = eyeTrait.type;
 
-  const organicSpots = generateSpots(bytes, isSymmetric && patternMode !== 'cyber');
-  const cyberCircuits = generateCircuits(bytes, isSymmetric && patternMode !== 'organic');
+  const organicSpots = generateSpots(
+    bytes,
+    isSymmetric && patternMode !== 'cyber',
+  );
+  const cyberCircuits = generateCircuits(
+    bytes,
+    isSymmetric && patternMode !== 'organic',
+  );
 
   const idBase = `koi-${normalised.slice(0, 8)}`;
   const bodyId = `${idBase}-body`;
@@ -467,7 +494,7 @@ export const KoiRenderer: FC<KoiRendererProps> = ({ dna, size = 220 }) => {
     <div
       className={cn(
         'relative inline-flex items-center justify-center koi-float',
-        'transition-transform duration-300'
+        'transition-transform duration-300',
       )}
     >
       <svg
@@ -492,7 +519,14 @@ export const KoiRenderer: FC<KoiRendererProps> = ({ dna, size = 220 }) => {
             height="6"
             patternUnits="userSpaceOnUse"
           >
-            <rect x="0" y="0" width="6" height="1" fill="#ffffff" opacity="0.12" />
+            <rect
+              x="0"
+              y="0"
+              width="6"
+              height="1"
+              fill="#ffffff"
+              opacity="0.12"
+            />
           </pattern>
 
           <filter
@@ -531,7 +565,12 @@ export const KoiRenderer: FC<KoiRendererProps> = ({ dna, size = 220 }) => {
         </defs>
 
         {/* Body base (matte) */}
-        <use href={`#${bodyId}`} fill={bodyFill} stroke="#020617" strokeWidth={2} />
+        <use
+          href={`#${bodyId}`}
+          fill={bodyFill}
+          stroke="#020617"
+          strokeWidth={2}
+        />
 
         {/* Texture overlay (very subtle, clipped) */}
         <g clipPath={`url(#${clipId})`}>
@@ -548,10 +587,14 @@ export const KoiRenderer: FC<KoiRendererProps> = ({ dna, size = 220 }) => {
         {/* Pattern engine, clipped to body */}
         <g clipPath={`url(#${clipId})`} filter={`url(#${patternGlowId})`}>
           {patternMode === 'organic' && renderSpots(organicSpots, accentSoft)}
-          {patternMode === 'cyber' && renderCircuits(cyberCircuits, accentColor)}
+          {patternMode === 'cyber' &&
+            renderCircuits(cyberCircuits, accentColor)}
           {patternMode === 'hybrid' && (
             <>
-              {renderSpots(organicSpots.slice(0, Math.ceil(organicSpots.length / 2)), accentSoft)}
+              {renderSpots(
+                organicSpots.slice(0, Math.ceil(organicSpots.length / 2)),
+                accentSoft,
+              )}
               {renderCircuits(cyberCircuits, accentColor)}
             </>
           )}
@@ -575,4 +618,3 @@ export const KoiRenderer: FC<KoiRendererProps> = ({ dna, size = 220 }) => {
     </div>
   );
 };
-

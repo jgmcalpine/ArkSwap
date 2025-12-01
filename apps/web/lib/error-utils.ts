@@ -32,13 +32,12 @@ export function getErrorMessage(error: unknown): string {
     if (typeof errObj.message === 'string') {
       return errObj.message;
     }
-    
+
     // Check for "error" property (e.g. "Bad Request")
     if (typeof errObj.error === 'string') {
       return errObj.error;
     }
   }
 
-  return "An unexpected error occurred";
+  return 'An unexpected error occurred';
 }
-

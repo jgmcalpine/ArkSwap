@@ -11,7 +11,7 @@ interface GlobalErrorProps {
  * Global error boundary for root-level errors
  * This catches errors that happen in layout.tsx or Context Providers
  * which the regular error.tsx cannot catch.
- * 
+ *
  * Note: This component MUST include <html> and <body> tags as it replaces
  * the entire root layout when an error occurs.
  */
@@ -31,8 +31,8 @@ export default function GlobalError({ error, reset }: GlobalErrorProps) {
                 Critical System Error
               </h1>
               <p className="mb-6 text-gray-300">
-                A critical error occurred that prevented the application from loading.
-                Please reload the application.
+                A critical error occurred that prevented the application from
+                loading. Please reload the application.
               </p>
               {error.message && (
                 <p className="mb-6 rounded bg-red-950/50 border border-red-900/50 p-3 text-sm text-red-300 font-mono break-all">
@@ -60,4 +60,3 @@ export default function GlobalError({ error, reset }: GlobalErrorProps) {
     </html>
   );
 }
-

@@ -7,4 +7,3 @@ export class AppController {
     return 'ArkSwap API';
   }
 }
-

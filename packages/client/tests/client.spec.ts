@@ -1,5 +1,10 @@
 import { MockArkClient, walletTools } from '../src/index';
-import { asTxId, asAddress, getAssetHash, createAssetPayToPublicKey } from '@arkswap/protocol';
+import {
+  asTxId,
+  asAddress,
+  getAssetHash,
+  createAssetPayToPublicKey,
+} from '@arkswap/protocol';
 import type { Vtxo, AssetMetadata } from '@arkswap/protocol';
 import { createHash } from 'crypto';
 
@@ -17,14 +22,14 @@ describe('MockArkClient - Pond Entry Signing', () => {
   beforeEach(async () => {
     // Create a fresh client instance for each test
     client = new MockArkClient();
-    
+
     // Create a wallet
     walletAddress = await client.createWallet();
     walletPubkey = await client.getPublicKey();
-    
+
     // Add the VTXO to the client's storage
     client.addVtxo(walletAddress, 1000);
-    
+
     // Get the actual VTXO that was added (with its generated txid)
     const vtxos = client.getVtxos(walletAddress);
     if (vtxos.length === 0) {
@@ -44,70 +49,96 @@ describe('MockArkClient - Pond Entry Signing', () => {
     it('should generate valid Schnorr signature for pond entry', async () => {
       // 1. Sign the message using the client's signing logic
       const { message, signature } = await client.signPondEntry(mockVtxo.txid);
-      
+
       // 2. Verify the message format
       expect(message).toBe(`Showcase ${mockVtxo.txid}`);
-      
+
       // 3. Verify signature is a hex string (64 bytes = 128 hex chars)
       expect(signature).toMatch(/^[0-9a-f]{128}$/i);
-      
+
       // 4. Reconstruct the message hash (same as client does)
       const { bitcoin, ecc } = walletTools;
-      const messageHashBuffer = bitcoin.crypto.sha256(Buffer.from(message, 'utf8'));
-      
+      const messageHashBuffer = bitcoin.crypto.sha256(
+        Buffer.from(message, 'utf8'),
+      );
+
       // 5. Extract the tweaked public key from the address (same as server does)
       // The server uses bitcoin.address.toOutputScript to extract the pubkey
-      const outputScript = bitcoin.address.toOutputScript(walletAddress, bitcoin.networks.regtest);
-      
+      const outputScript = bitcoin.address.toOutputScript(
+        walletAddress,
+        bitcoin.networks.regtest,
+      );
+
       // Taproot Script is: OP_1 (0x51) <32-byte-pubkey>
       expect(outputScript.length).toBe(34);
       expect(outputScript[0]).toBe(0x51);
       expect(outputScript[1]).toBe(0x20);
-      
+
       const pubkey = Buffer.from(outputScript.slice(2, 34));
-      
+
       // 6. Verify the signature using @bitcoinerlab/secp256k1 (same as server)
       const signatureBuffer = Buffer.from(signature, 'hex');
-      const isValid = ecc.verifySchnorr(messageHashBuffer, pubkey, signatureBuffer);
-      
+      const isValid = ecc.verifySchnorr(
+        messageHashBuffer,
+        pubkey,
+        signatureBuffer,
+      );
+
       // 7. Assert the signature is valid
       expect(isValid).toBe(true);
     });
 
     it('should produce different signatures for different txids', async () => {
       const { signature: sig1 } = await client.signPondEntry(mockVtxo.txid);
-      
+
       // Add another VTXO to get a different txid
       client.addVtxo(walletAddress, 500);
       const vtxos = client.getVtxos(walletAddress);
-      const differentVtxo = vtxos.find(v => v.txid !== mockVtxo.txid);
+      const differentVtxo = vtxos.find((v) => v.txid !== mockVtxo.txid);
       if (!differentVtxo) {
         throw new Error('Failed to create different VTXO');
       }
-      const { signature: sig2 } = await client.signPondEntry(differentVtxo.txid);
-      
+      const { signature: sig2 } = await client.signPondEntry(
+        differentVtxo.txid,
+      );
+
       expect(sig1).not.toBe(sig2);
     });
 
     it('should produce valid signatures for the same txid (may be non-deterministic)', async () => {
       // Note: Schnorr signatures may use random nonces, so signatures may differ
       // but both should be valid for the same message
-      const { message, signature: sig1 } = await client.signPondEntry(mockVtxo.txid);
+      const { message, signature: sig1 } = await client.signPondEntry(
+        mockVtxo.txid,
+      );
       const { signature: sig2 } = await client.signPondEntry(mockVtxo.txid);
-      
+
       // Both signatures should be valid hex strings
       expect(sig1).toMatch(/^[0-9a-f]{128}$/i);
       expect(sig2).toMatch(/^[0-9a-f]{128}$/i);
-      
+
       // Verify both signatures are valid (even if different)
       const { bitcoin, ecc } = walletTools;
-      const messageHashBuffer = bitcoin.crypto.sha256(Buffer.from(message, 'utf8'));
-      const outputScript = bitcoin.address.toOutputScript(walletAddress, bitcoin.networks.regtest);
+      const messageHashBuffer = bitcoin.crypto.sha256(
+        Buffer.from(message, 'utf8'),
+      );
+      const outputScript = bitcoin.address.toOutputScript(
+        walletAddress,
+        bitcoin.networks.regtest,
+      );
       const pubkey = Buffer.from(outputScript.slice(2, 34));
-      
-      const isValid1 = ecc.verifySchnorr(messageHashBuffer, pubkey, Buffer.from(sig1, 'hex'));
-      const isValid2 = ecc.verifySchnorr(messageHashBuffer, pubkey, Buffer.from(sig2, 'hex'));
-      
+
+      const isValid1 = ecc.verifySchnorr(
+        messageHashBuffer,
+        pubkey,
+        Buffer.from(sig1, 'hex'),
+      );
+      const isValid2 = ecc.verifySchnorr(
+        messageHashBuffer,
+        pubkey,
+        Buffer.from(sig2, 'hex'),
+      );
+
       expect(isValid1).toBe(true);
       expect(isValid2).toBe(true);
     });
@@ -115,28 +146,35 @@ describe('MockArkClient - Pond Entry Signing', () => {
     it('should verify signature matches server-side verification logic', async () => {
       // This test simulates the server-side verification from PondController
       const { message, signature } = await client.signPondEntry(mockVtxo.txid);
-      
+
       // Server-side logic (from pond.controller.ts):
       // 1. Reconstruct message hash (SHA256)
       const messageHash = createHash('sha256').update(message).digest();
       const messageHashBuffer = Buffer.from(messageHash);
-      
+
       // 2. Decode address to get pubkey (server extracts from Taproot script)
       const { bitcoin } = walletTools;
-      const outputScript = bitcoin.address.toOutputScript(walletAddress, bitcoin.networks.regtest);
-      
+      const outputScript = bitcoin.address.toOutputScript(
+        walletAddress,
+        bitcoin.networks.regtest,
+      );
+
       // Taproot Script is: OP_1 (0x51) <32-byte-pubkey>
       expect(outputScript.length).toBe(34);
       expect(outputScript[0]).toBe(0x51);
       expect(outputScript[1]).toBe(0x20);
-      
+
       const pubkey = Buffer.from(outputScript.slice(2, 34));
-      
+
       // 3. Verify Schnorr Signature (server uses ecc.verifySchnorr)
       const { ecc } = walletTools;
       const signatureBuffer = Buffer.from(signature, 'hex');
-      const isValid = ecc.verifySchnorr(messageHashBuffer, pubkey, signatureBuffer);
-      
+      const isValid = ecc.verifySchnorr(
+        messageHashBuffer,
+        pubkey,
+        signatureBuffer,
+      );
+
       expect(isValid).toBe(true);
     });
 
@@ -152,11 +190,14 @@ describe('MockArkClient - Pond Entry Signing', () => {
       };
 
       // Create asset address using the same logic as mintGen0
-      const assetAddress = createAssetPayToPublicKey(walletPubkey, mockMetadata);
+      const assetAddress = createAssetPayToPublicKey(
+        walletPubkey,
+        mockMetadata,
+      );
 
       // Generate a random txid for the asset VTXO
       const assetTxid = Array.from({ length: 64 }, () =>
-        Math.floor(Math.random() * 16).toString(16)
+        Math.floor(Math.random() * 16).toString(16),
       ).join('');
 
       // Create asset VTXO with metadata
@@ -189,7 +230,10 @@ describe('MockArkClient - Pond Entry Signing', () => {
       const { ecc } = walletTools;
       const assetTweak = getAssetHash(mockMetadata);
       // xOnlyPointAddTweak is available on the actual ecc library but not in our interface
-      const assetTweakResult = (ecc as any).xOnlyPointAddTweak(basePubkey, assetTweak);
+      const assetTweakResult = (ecc as any).xOnlyPointAddTweak(
+        basePubkey,
+        assetTweak,
+      );
       if (!assetTweakResult || !assetTweakResult.xOnlyPubkey) {
         throw new Error('Failed to apply asset tweak');
       }
@@ -200,7 +244,10 @@ describe('MockArkClient - Pond Entry Signing', () => {
       const { bitcoin } = walletTools;
       const tapTweak = bitcoin.crypto.taggedHash('TapTweak', assetPubkey);
       // xOnlyPointAddTweak is available on the actual ecc library but not in our interface
-      const finalTweakResult = (ecc as any).xOnlyPointAddTweak(assetPubkey, tapTweak);
+      const finalTweakResult = (ecc as any).xOnlyPointAddTweak(
+        assetPubkey,
+        tapTweak,
+      );
       if (!finalTweakResult || !finalTweakResult.xOnlyPubkey) {
         throw new Error('Failed to apply Taproot tweak');
       }
@@ -208,7 +255,9 @@ describe('MockArkClient - Pond Entry Signing', () => {
 
       // Step 4: Verify the signature
       const { bitcoin: bitcoinLib, ecc: eccLib } = walletTools;
-      const messageHashBuffer = bitcoinLib.crypto.sha256(Buffer.from(message, 'utf8'));
+      const messageHashBuffer = bitcoinLib.crypto.sha256(
+        Buffer.from(message, 'utf8'),
+      );
       const signatureBuffer = Buffer.from(signature, 'hex');
 
       // Verify signature format
@@ -216,7 +265,11 @@ describe('MockArkClient - Pond Entry Signing', () => {
       expect(message).toBe(`Showcase ${assetVtxo.txid}`);
 
       // Verify signature against the final pubkey (with both tweaks applied)
-      const isValid = eccLib.verifySchnorr(messageHashBuffer, finalPubkey, signatureBuffer);
+      const isValid = eccLib.verifySchnorr(
+        messageHashBuffer,
+        finalPubkey,
+        signatureBuffer,
+      );
       expect(isValid).toBe(true);
     });
   });
@@ -235,7 +288,7 @@ describe('MockArkClient - breed signature verification', () => {
 
     // Create a fresh client instance
     client = new MockArkClient();
-    
+
     // Create a wallet
     walletAddress = await client.createWallet();
     walletPubkey = await client.getPublicKey();
@@ -251,9 +304,9 @@ describe('MockArkClient - breed signature verification', () => {
     };
     const assetAddress1 = createAssetPayToPublicKey(walletPubkey, metadata1);
     const parent1Txid = Array.from({ length: 64 }, () =>
-      Math.floor(Math.random() * 16).toString(16)
+      Math.floor(Math.random() * 16).toString(16),
     ).join('');
-    
+
     parent1Vtxo = {
       txid: asTxId(parent1Txid),
       vout: 0,
@@ -275,9 +328,9 @@ describe('MockArkClient - breed signature verification', () => {
     };
     const assetAddress2 = createAssetPayToPublicKey(walletPubkey, metadata2);
     const parent2Txid = Array.from({ length: 64 }, () =>
-      Math.floor(Math.random() * 16).toString(16)
+      Math.floor(Math.random() * 16).toString(16),
     ).join('');
-    
+
     parent2Vtxo = {
       txid: asTxId(parent2Txid),
       vout: 0,
@@ -294,12 +347,12 @@ describe('MockArkClient - breed signature verification', () => {
       vtxos[assetAddress1] = [];
     }
     vtxos[assetAddress1].push(parent1Vtxo);
-    
+
     if (!vtxos[assetAddress2]) {
       vtxos[assetAddress2] = [];
     }
     vtxos[assetAddress2].push(parent2Vtxo);
-    
+
     (client as any).setStorage(vtxos);
 
     // Mock successful fetch response
@@ -373,7 +426,11 @@ describe('MockArkClient - breed signature verification', () => {
     // The server calls: ecc.verifySchnorr(messageHash, baseWalletPubkey, signature)
     // The client signs with: base wallet private key (after parity check, no tweaking)
     const { ecc } = walletTools;
-    const isValid = ecc.verifySchnorr(messageHashBuffer, pubkeyBuffer, signatureBuffer);
+    const isValid = ecc.verifySchnorr(
+      messageHashBuffer,
+      pubkeyBuffer,
+      signatureBuffer,
+    );
 
     // ASSERTION:
     // This test verifies that the client signs with the base wallet key (no tweaking)
@@ -381,6 +438,4 @@ describe('MockArkClient - breed signature verification', () => {
     // This should PASS after fixing signBreedMessage() to remove tweaking logic
     expect(isValid).toBe(true);
   });
-
 });
-

@@ -9,4 +9,3 @@ import { BitcoinModule } from '../bitcoin/bitcoin.module';
   providers: [SwapService],
 })
 export class SwapModule {}
-

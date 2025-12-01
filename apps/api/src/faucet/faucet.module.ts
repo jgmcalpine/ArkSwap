@@ -7,4 +7,3 @@ import { BitcoinModule } from '../bitcoin/bitcoin.module';
   controllers: [FaucetController],
 })
 export class FaucetModule {}
-
