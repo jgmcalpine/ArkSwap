@@ -123,6 +123,10 @@ export class ParserService {
       const { inputAmount, outputAmount, vtxoCount } =
         ParserService.calculateAmounts(tx);
 
+      // Calculate tree depth from vtxoCount
+      // Tree depth is approximately log2(vtxoCount) for a balanced tree
+      const treeDepth = vtxoCount > 0 ? Math.ceil(Math.log2(vtxoCount)) : 0;
+
       // Use 'local-asp' as default aspId since we found the marker
       // In the future, this could be looked up from a registry or database
       const aspId = 'local-asp';
@@ -135,6 +139,7 @@ export class ParserService {
         inputAmount,
         outputAmount,
         vtxoCount,
+        treeDepth,
       };
 
       // Idempotent: upsert by txid so re-scans do not fail.

@@ -5,10 +5,20 @@ import { BitcoinService } from './bitcoin.service';
 import { ScannerService } from './scanner.service';
 import { ParserService } from './parser.service';
 import { SeederService } from './seeder.service';
+import { AggregatorService } from './stats/aggregator.service';
+import { ScoreService } from './stats/score.service';
+import { StatsController } from './stats/stats.controller';
 
 @Module({
   imports: [DatabaseModule, ScheduleModule.forRoot()],
-  controllers: [],
-  providers: [BitcoinService, ScannerService, ParserService, SeederService],
+  controllers: [StatsController],
+  providers: [
+    BitcoinService,
+    ScannerService,
+    ParserService,
+    SeederService,
+    AggregatorService,
+    ScoreService,
+  ],
 })
 export class AppModule {}

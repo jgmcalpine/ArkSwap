@@ -16,6 +16,7 @@ model AspDefinition {
   poolAddress String
   isProduction Boolean  @default(false)
   rounds      ArkRound[]
+  transactions ArkTransaction[]
 
   @@map("asp_definitions")
 }
@@ -36,8 +37,23 @@ model ArkRound {
   inputAmount BigInt
   outputAmount BigInt
   vtxoCount   Int
+  treeDepth   Int?
   asp         AspDefinition @relation(fields: [aspId], references: [id], onDelete: Cascade)
 
   @@map("ark_rounds")
+}
+
+model ArkTransaction {
+  txid        String    @id
+  aspId       String
+  blockHeight Int
+  timestamp   DateTime
+  amount      BigInt
+  type        String    // 'UNILATERAL_EXIT', 'LIFT', 'TRANSFER', etc.
+  asp         AspDefinition @relation(fields: [aspId], references: [id], onDelete: Cascade)
+
+  @@map("ark_transactions")
+  @@index([aspId, timestamp])
+  @@index([type, timestamp])
 }
 

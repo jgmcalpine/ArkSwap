@@ -130,4 +130,29 @@ export class BitcoinService {
     // getrawtransaction with verbose=true returns full transaction details
     return this.callRPC<RawTransaction>('getrawtransaction', [txid, true]);
   }
+
+  /**
+   * Gets the UTXO balance for a specific address
+   * @param address The Bitcoin address
+   * @returns The balance in satoshis
+   */
+  async getAddressBalance(address: string): Promise<bigint> {
+    // Use listunspent to get all unspent outputs for the address
+    const unspent = await this.callRPC<
+      Array<{
+        txid: string;
+        vout: number;
+        address: string;
+        amount: number;
+        confirmations: number;
+      }>
+    >('listunspent', [0, 9999999, [address]]);
+
+    // Sum all unspent amounts (convert BTC to satoshis)
+    const totalSats = unspent.reduce((sum, utxo) => {
+      return sum + BigInt(Math.round(utxo.amount * 1e8));
+    }, 0n);
+
+    return totalSats;
+  }
 }
