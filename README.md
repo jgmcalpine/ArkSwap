@@ -49,6 +49,18 @@ To understand the utility of these protocols, we follow two users interacting wi
 - **Game Theory:** To breed a rare fish, Kenji must pay a fee and "burn" two parent VTXOs to create a child. That child inherits not just DNA from its parents, but also the value of the minting fee. A gen 1 fish, then, can be redeemed for 2000 satoshis. A gen 2 fish for 4000 and so on...
 - **The Value:** If Kenji gets bored, he can "Smash the Piggy Bank." He performs a Unilateral Exit to Layer 1. The art (metadata) is lost, but the **1,000 sats** (or more if it is a greater generation) stored inside the fish are returned to his Bitcoin wallet.
 
+## 🚧 In Progress: ArkWatch (Protocol Auditor)
+
+We are currently building **ArkWatch**, a dedicated block explorer and scoring engine for Ark Service Providers (ASPs).
+
+While ArkSwap demonstrates the _Application Layer_ (Building on Ark), ArkWatch targets the _Infrastructure Layer_ (Verifying Ark). It proves that Ark's trustless nature is not just a theoretical claim, but an auditible fact visible on the Bitcoin blockchain.
+
+**The Research Scope:**
+
+- **Chain Indexing:** Building a custom indexer to scan Bitcoin Regtest for ASP footprint (Round Transactions and Pool UTXOs).
+- **Solvency Analysis:** Tracking **Total Value Locked (TVL)** versus **Unilateral Exit Volume** to detect liquidity crunches or bank runs in real-time.
+- **The Scorecard:** An algorithmic grading system (A-F) that quantifies the safety, reliability, and efficiency of an ASP based purely on public chain data.
+
 ## 🧠 Technical Deep Dive: Under the Hood
 
 This repo implements complex Bitcoin cryptography from scratch to achieve these features.
