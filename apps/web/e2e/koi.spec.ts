@@ -33,7 +33,18 @@ test.describe('SatoshiKoi Asset Lifecycle', () => {
       });
     });
 
-    // Step 2: Assert SatoshiKoi Pond is visible
+    // Step 2: Navigate to SatoshiKoi tab
+    await test.step('Navigate to SatoshiKoi Tab', async () => {
+      // Click on the SatoshiKoi tab
+      await page.click('button:has-text("SatoshiKoi")');
+
+      // Wait for the tab to be active
+      await expect(
+        page.getByRole('button', { name: /SatoshiKoi/i }),
+      ).toHaveClass(/bg-cyan-600/);
+    });
+
+    // Step 3: Assert SatoshiKoi Pond is visible
     await test.step('Assert SatoshiKoi Pond Section', async () => {
       // Assert "SatoshiKoi Pond" title is visible
       await expect(page.getByText('SatoshiKoi Pond')).toBeVisible();
@@ -44,7 +55,7 @@ test.describe('SatoshiKoi Asset Lifecycle', () => {
       ).toBeVisible();
     });
 
-    // Step 3: Mint Gen 0 Koi
+    // Step 4: Mint Gen 0 Koi
     await test.step('Mint Gen 0 Koi', async () => {
       // Click "Mint Gen 0 Fish" button
       await page.click('button:has-text("Mint Gen 0 Fish")');
@@ -60,8 +71,16 @@ test.describe('SatoshiKoi Asset Lifecycle', () => {
       });
     });
 
-    // Step 4: Wait for asset to appear in coin list
+    // Step 5: Wait for asset to appear in coin list
     await test.step('Discover Asset in Wallet', async () => {
+      // Navigate to Swap tab to see the "Available Coins" section
+      await page.click('button:has-text("Swap")');
+
+      // Wait for the tab to be active
+      await expect(page.getByRole('button', { name: /Swap/i })).toHaveClass(
+        /bg-blue-600/,
+      );
+
       // Wait for the "Available Coins" section to be visible (if not already)
       // This ensures the coin list UI is rendered
       // The section only renders when vtxos.length > 0, so this effectively waits for blockchain confirmation
@@ -71,7 +90,7 @@ test.describe('SatoshiKoi Asset Lifecycle', () => {
 
       // Wait for "Gen 0 Koi" to appear in the coin list as an interactive button
       // This targets the actual coin item in the wallet list, not the static description text
-      // Allow 15s timeout for the round to finalize and asset to be discovered
+      // Allow 20s timeout for the round to finalize and asset to be discovered
       await expect(
         page.getByRole('button', { name: /Gen 0 Koi/i }),
       ).toBeVisible({ timeout: 20000 });
