@@ -119,6 +119,30 @@ export class AggregatorService {
       0n,
     );
 
+    // Subtract ALL simulated exits from TVL (not just last 24h)
+    // Simulated exits have txid starting with "sim_"
+    // These represent permanent reductions in TVL, regardless of when they occurred
+    const allExitTransactions = await this.prisma.arkTransaction.findMany({
+      where: {
+        aspId: asp.id,
+        type: 'UNILATERAL_EXIT',
+      },
+    });
+
+    // Filter simulated exits (txid starts with "sim_") and sum their amounts
+    const simulatedExitAmount = allExitTransactions
+      .filter((tx) => tx.txid.startsWith('sim_'))
+      .reduce((sum, tx) => sum + tx.amount, 0n);
+
+    // Adjust TVL by subtracting simulated exit amounts
+    // This ensures that simulated exits reduce the displayed TVL
+    if (tvl >= simulatedExitAmount) {
+      tvl = tvl - simulatedExitAmount;
+    } else {
+      // If simulated exits exceed TVL, set to 0 (shouldn't happen, but safety check)
+      tvl = 0n;
+    }
+
     // Calculate Tree Depth - average treeDepth of rounds in last 24h
     let treeDepth = 0;
     const roundsWithDepth = rounds.filter((r) => r.treeDepth !== null);

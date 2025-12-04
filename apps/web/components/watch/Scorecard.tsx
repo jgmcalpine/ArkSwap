@@ -1,10 +1,12 @@
 'use client';
 
 import { cn } from '../../lib/utils';
+import type { Metrics } from '../../lib/indexer-api';
 
 interface ScorecardProps {
   grade: string;
   score: number;
+  metrics: Metrics;
 }
 
 const gradeColors: Record<string, string> = {
@@ -15,8 +17,17 @@ const gradeColors: Record<string, string> = {
   F: 'bg-red-500/20 border-red-500 text-red-400',
 };
 
-export function Scorecard({ grade, score }: ScorecardProps) {
+export function Scorecard({ grade, score, metrics }: ScorecardProps) {
   const gradeColor = gradeColors[grade] || gradeColors.F;
+
+  // Calculate exit ratio (exitVolume / tvl)
+  const tvl = BigInt(metrics.tvl);
+  const exitVolume = BigInt(metrics.exitVolume);
+  const exitRatio = tvl > 0n ? Number(exitVolume) / Number(tvl) : 0;
+  const exitPercentage = exitRatio * 100;
+
+  // Show liquidity drain badge only if ratio > 5%
+  const showLiquidityDrain = exitRatio > 0.05;
 
   return (
     <div className="rounded-xl border border-gray-800 bg-gray-900/50 p-6 backdrop-blur-sm">
@@ -35,6 +46,13 @@ export function Scorecard({ grade, score }: ScorecardProps) {
             {score.toFixed(2)}
           </p>
         </div>
+        {showLiquidityDrain && (
+          <div className="mt-2 rounded-lg border border-yellow-500/50 bg-yellow-500/20 px-4 py-2">
+            <p className="text-sm font-semibold text-yellow-400">
+              ⚠️ {exitPercentage.toFixed(1)}% Liquidity Drain
+            </p>
+          </div>
+        )}
       </div>
     </div>
   );

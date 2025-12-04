@@ -20,20 +20,24 @@ export class ScoreService {
    */
   calculateScore(stats: AggregatedStats): ScoreResult {
     // Safety (50 pts): Exit Volume vs TVL ratio
+    // Thresholds:
+    // - < 5%: Green (Safe) - 50 pts (Normal user churn)
+    // - 5% - 20%: Yellow (Caution) - Linear interpolation (Significant outflow)
+    // - > 20%: Red (Danger) - 0 pts (Bank Run)
     let safety = 0;
     if (stats.tvl > 0n) {
       const exitRatio = Number(stats.exitVolume) / Number(stats.tvl);
-      if (exitRatio < 0.01) {
-        // Exit Volume < 1% TVL = 50 pts
+      if (exitRatio < 0.05) {
+        // Exit Volume < 5% TVL = 50 pts (Green - Safe)
         safety = 50;
-      } else if (exitRatio > 0.1) {
-        // Exit Volume > 10% TVL = 0 pts
+      } else if (exitRatio > 0.2) {
+        // Exit Volume > 20% TVL = 0 pts (Red - Danger/Bank Run)
         safety = 0;
       } else {
-        // Linear interpolation between 1% and 10%
-        // At 1%: 50 pts, at 10%: 0 pts
-        // Formula: 50 * (1 - (exitRatio - 0.01) / (0.1 - 0.01))
-        safety = 50 * (1 - (exitRatio - 0.01) / 0.09);
+        // Linear interpolation between 5% and 20%
+        // At 5%: 50 pts, at 20%: 0 pts
+        // Formula: 50 * (1 - (exitRatio - 0.05) / (0.2 - 0.05))
+        safety = 50 * (1 - (exitRatio - 0.05) / 0.15);
         safety = Math.max(0, Math.min(50, safety)); // Clamp between 0 and 50
       }
     } else {

@@ -8,10 +8,11 @@ import { SeederService } from './seeder.service';
 import { AggregatorService } from './stats/aggregator.service';
 import { ScoreService } from './stats/score.service';
 import { StatsController } from './stats/stats.controller';
+import { DebugController } from './debug/debug.controller';
 
 @Module({
   imports: [DatabaseModule, ScheduleModule.forRoot()],
-  controllers: [StatsController],
+  controllers: [StatsController, DebugController],
   providers: [
     BitcoinService,
     ScannerService,

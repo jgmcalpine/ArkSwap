@@ -1,23 +1,45 @@
 'use client';
 
 import { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
-import { Loader2, AlertCircle, MapPin } from 'lucide-react';
-import { getAspStats } from '../../lib/indexer-api';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { Loader2, AlertCircle, MapPin, RefreshCw } from 'lucide-react';
+import {
+  getAspStats,
+  simulateExit,
+  resetSimulation,
+} from '../../lib/indexer-api';
 import { Scorecard } from './Scorecard';
 import { MetricGrid } from './MetricGrid';
 
 export function WatchView() {
   const [aspId, setAspId] = useState<string>('local-asp');
+  const queryClient = useQueryClient();
 
   const {
     data: stats,
     isLoading,
     error,
+    refetch,
   } = useQuery({
     queryKey: ['asp-stats', aspId],
     queryFn: () => getAspStats(aspId),
     refetchInterval: 10000, // Refetch every 10 seconds
+  });
+
+  const simulateMutation = useMutation({
+    mutationFn: () => simulateExit(25, aspId),
+    onSuccess: () => {
+      // Refetch stats after simulation
+      queryClient.invalidateQueries({ queryKey: ['asp-stats', aspId] });
+    },
+  });
+
+  const resetMutation = useMutation({
+    mutationFn: () => resetSimulation(),
+    onSuccess: () => {
+      // Refetch stats after reset
+      refetch();
+    },
   });
 
   return (
@@ -101,8 +123,74 @@ export function WatchView() {
               </div>
             </div>
           </div>
-          <Scorecard grade={stats.grade} score={stats.score} />
+          <Scorecard
+            grade={stats.grade}
+            score={stats.score}
+            metrics={stats.metrics}
+          />
           <MetricGrid metrics={stats.metrics} />
+          {/* Simulate Bank Run and Reset Buttons */}
+          <div className="rounded-xl border border-gray-800 bg-gray-900/50 p-6 backdrop-blur-sm">
+            <div className="space-y-3">
+              <button
+                type="button"
+                onClick={() => simulateMutation.mutate()}
+                disabled={simulateMutation.isPending || resetMutation.isPending}
+                className="w-full rounded-lg bg-red-600 px-4 py-3 text-sm font-semibold text-white transition-colors hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {simulateMutation.isPending ? (
+                  <span className="flex items-center justify-center gap-2">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Simulating...
+                  </span>
+                ) : (
+                  '🔥 Simulate 25% Bank Run'
+                )}
+              </button>
+              <button
+                type="button"
+                onClick={() => resetMutation.mutate()}
+                disabled={simulateMutation.isPending || resetMutation.isPending}
+                className="w-full rounded-lg border border-gray-600 bg-gray-800 px-4 py-3 text-sm font-semibold text-gray-300 transition-colors hover:bg-gray-700 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {resetMutation.isPending ? (
+                  <span className="flex items-center justify-center gap-2">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Resetting...
+                  </span>
+                ) : (
+                  <span className="flex items-center justify-center gap-2">
+                    <RefreshCw className="h-4 w-4" />
+                    Reset Stats
+                  </span>
+                )}
+              </button>
+              {simulateMutation.isError && (
+                <p className="text-sm text-red-400">
+                  {simulateMutation.error instanceof Error
+                    ? simulateMutation.error.message
+                    : 'Failed to simulate exit'}
+                </p>
+              )}
+              {simulateMutation.isSuccess && (
+                <p className="text-sm text-green-400">
+                  {simulateMutation.data.message}
+                </p>
+              )}
+              {resetMutation.isError && (
+                <p className="text-sm text-red-400">
+                  {resetMutation.error instanceof Error
+                    ? resetMutation.error.message
+                    : 'Failed to reset simulation'}
+                </p>
+              )}
+              {resetMutation.isSuccess && (
+                <p className="text-sm text-green-400">
+                  {resetMutation.data.message}
+                </p>
+              )}
+            </div>
+          </div>
         </>
       )}
     </div>
