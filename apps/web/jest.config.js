@@ -18,4 +18,5 @@ module.exports = {
     '/node_modules/',
     '/e2e/', // Exclude Playwright e2e tests
   ],
+  passWithNoTests: true, // Pass when no tests are found (e2e tests are in /e2e/)
 };

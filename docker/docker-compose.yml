@@ -78,6 +78,29 @@ services:
       timeout: 5s
       retries: 5
 
+  indexer:
+    build:
+      context: ..
+      dockerfile: ./docker/indexer.Dockerfile
+    container_name: indexer
+    ports:
+      - "3002:3002"
+    environment:
+      - BITCOIN_RPC_URL=http://bitcoind:18443
+      - DATABASE_URL=postgresql://arkswap:arkswap@postgres:5432/arkswap
+    networks:
+      - arkswap-network
+    depends_on:
+      bitcoind:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3002"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
 networks:
   arkswap-network:
     driver: bridge
