@@ -37,7 +37,7 @@ To understand the utility of these protocols, we follow two users interacting wi
 
 **Meet Elena**, a freelancer who gets paid in Bitcoin via Ark (Layer 2) for speed and privacy. She wants to move her savings to a Hardware Wallet (Layer 1) without using a centralized exchange (KYC).
 
-- **The Problem:** On-chain payments are expensive and slow. Lightning requires liveness.
+- **The Problem:** On-chain payments are expensive and slow. Lightning requires liveness and channel management.
 - **The Solution:** Elena accumulates 4 weekly paychecks (VTXOs) and uses **ArkSwap** to batch them into a single L1 transaction.
 - **The Security:** She sends her funds to a **Smart Contract (HTLC)**. If the Market Maker pays her on L1, they get the VTXOs. If they fail to pay, the contract unlocks, and she reclaims her funds via the "Refund" button.
 
@@ -46,7 +46,7 @@ To understand the utility of these protocols, we follow two users interacting wi
 **Meet Kenji**, a collector who wants to play a game on Bitcoin without paying $10 in mining fees for every move.
 
 - **The Concept:** Kenji mints a "SatoshiKoi." This isn't just a JPEG link; the Fish **IS** the VTXO.
-- **Game Theory:** To breed a rare fish, Kenji must pay a fee and "burn" two parent VTXOs to create a child. That child inherits not just DNA from its parents, but also the value of the minting fee. A gen 1 fish, then, can be redeemed for 2000 satoshis. A gen 2 fish for 4000 and so on...
+- **Game Theory:** To breed a rare fish, Kenji must "burn" two parent VTXOs to create a child. That child inherits not just DNA from its parents, but also the value of the minting fee. A gen 0 fish minted for 1000 satoshis contains the satoshis within itself. A gen 1 fish, then, can be redeemed for 2000 satoshis. A gen 2 fish for 4000 and so on...
 - **The Value:** If Kenji gets bored, he can "Smash the Piggy Bank." He performs a Unilateral Exit to Layer 1. The art (metadata) is lost, but the **1,000 sats** (or more if it is a greater generation) stored inside the fish are returned to his Bitcoin wallet.
 
 ## 🚧 In Progress: ArkWatch (Protocol Auditor)
